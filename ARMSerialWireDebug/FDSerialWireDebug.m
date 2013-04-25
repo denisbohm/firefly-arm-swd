@@ -96,6 +96,7 @@
 @property NSUInteger registerRetryCount;
 
 @property bool overrunDetectionEnabled;
+@property UInt32 tarIncrementBits;
 
 @end
 
@@ -126,6 +127,8 @@
         _ackWaitRetryCount = 3;
         _debugPortStatusRetryCount = 3;
         _registerRetryCount = 3;
+        
+        _tarIncrementBits = 0x3ff;
     }
     return self;
 }
@@ -143,11 +146,6 @@
     [_serialEngine setLowByte:_gpioOutputs direction:_gpioDirections];
     [_serialEngine setHighByte:_gpioOutputs >> 8 direction:_gpioDirections >> 8];
     [_serialEngine write];
-    
-    NSData *data = [_serialEngine read];
-    NSLog(@"initial read %@", data);
-    
-    [self getGpios];
 }
 
 - (void)getGpios
@@ -159,7 +157,7 @@
     NSData *data = [_serialEngine read:2];
     UInt8 *bytes = (UInt8 *)data.bytes;
     _gpioInputs = (bytes[1] << 8) | bytes[0];
-    NSLog(@"gpios %04x", _gpioInputs);
+//    NSLog(@"gpios %04x", _gpioInputs);
 }
 
 - (void)setGpioBit:(NSUInteger)bit value:(bool)value
@@ -202,16 +200,21 @@
     [self setGpioBit:_gpioWriteBit value:false];
 }
 
+- (void)skip:(NSUInteger)n
+{
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0 bitCount:n];
+}
+
 - (void)turnToWriteAndSkip
 {
     [self turnToWrite];
-    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0 bitCount:1];
+    [self skip:1];
 }
 
 - (void)turnToReadAndSkip
 {
     [self turnToRead];
-    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0 bitCount:1];
+    [self skip:1];
 }
 
 - (void)resetDebugAccessPort
@@ -320,13 +323,15 @@ typedef enum {
 
 - (void)writeUInt32:(UInt32)value
 {
-    UInt8 bytes[] = {value, value >> 8, value >> 16, value >> 24, [self getParityUInt32:value]};
+    UInt8 bytes[] = {value, value >> 8, value >> 16, value >> 24};
     [_serialEngine shiftOutDataLSBFirstNegativeEdge:[NSData dataWithBytes:bytes length:sizeof(bytes)]];
+    UInt8 parity = [self getParityUInt32:value];
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:parity bitCount:1];
 }
 
 - (UInt32)readPort:(SWDPort)port registerOffset:(UInt8)registerOffset
 {
-    NSLog(@"read  %@ %02x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset);
+//    NSLog(@"read  %@ %02x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset);
     UInt8 request = [self encodeRequestPort:port direction:SWDReadDirection address:registerOffset];
     for (NSUInteger retry = 0; retry < _ackWaitRetryCount; ++retry) {
         SWDAck ack = [self request:request];
@@ -340,7 +345,7 @@ typedef enum {
                 value = [self readUInt32];
                 [self turnToWriteAndSkip];
             }
-            NSLog(@"read  %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
+//            NSLog(@"read  %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
             return value;
         }
         if (!_overrunDetectionEnabled) {
@@ -355,7 +360,7 @@ typedef enum {
 
 - (void)writePort:(SWDPort)port registerOffset:(UInt8)registerOffset value:(UInt32)value
 {
-    NSLog(@"write %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
+//    NSLog(@"write %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
     UInt8 request = [self encodeRequestPort:port direction:SWDWriteDirection address:registerOffset];
     for (NSUInteger retry = 0; retry < _ackWaitRetryCount; ++retry) {
         SWDAck ack = [self request:request];
@@ -367,7 +372,7 @@ typedef enum {
             if (!_overrunDetectionEnabled) {
                 [self writeUInt32:value];
             }
-            NSLog(@"write %@ %02x = %08x done", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
+//            NSLog(@"write %@ %02x = %08x done", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
             return;
         }
         if (ack != SWDWaitAck) {
@@ -445,11 +450,11 @@ typedef enum {
 
 - (UInt32)readAccessPort:(UInt8)registerOffset
 {
-    NSLog(@"read access port %02x", registerOffset);
+//    NSLog(@"read access port %02x", registerOffset);
     [self accessPortBankSelect:registerOffset];
     [self readPort:SWDAccessPort registerOffset:registerOffset];
     uint32_t value = [self readPort:SWDDebugPort registerOffset:SWD_DP_RDBUFF];
-    NSLog(@"read access port %02x = %08x", registerOffset, value);
+//    NSLog(@"read access port %02x = %08x", registerOffset, value);
     return value;
 }
 
@@ -460,11 +465,30 @@ typedef enum {
 
 - (void)writeAccessPort:(UInt8)registerOffset value:(UInt32)value
 {
-    NSLog(@"write access port %02x = %08x", registerOffset, value);
+//    NSLog(@"write access port %02x = %08x", registerOffset, value);
     [self accessPortBankSelect:registerOffset];
     [self writePort:SWDAccessPort registerOffset:registerOffset value:value];
     [self flush];
-    NSLog(@"write access port %02x = %08x done", registerOffset, value);
+//    NSLog(@"write access port %02x = %08x done", registerOffset, value);
+}
+
+- (UInt32)readMemory:(UInt32)address
+{
+//    NSLog(@"read memory %08x", address);
+    [self writeAccessPort:SWD_AP_TAR value:address];
+    uint32_t value = [self readAccessPort:SWD_AP_DRW];
+    [self checkDebugPortStatus];
+//    NSLog(@"read memory %08x = %08x", address, value);
+    return value;
+}
+
+- (void)writeMemory:(UInt32)address value:(UInt32)value
+{
+//    NSLog(@"write memory %08x = %08x", address, value);
+    [self writeAccessPort:SWD_AP_TAR value:address];
+    [self writeAccessPort:SWD_AP_DRW value:value];
+    [self checkDebugPortStatus];
+//    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
 - (void)setOverrunDetection:(bool)enabled
@@ -484,23 +508,132 @@ typedef enum {
     _overrunDetectionEnabled = enabled;
 }
 
-- (UInt32)readMemory:(UInt32)address
-{
-    NSLog(@"read memory %08x", address);
-    [self writeAccessPort:SWD_AP_TAR value:address];
-    uint32_t value = [self readAccessPort:SWD_AP_DRW];
-    [self checkDebugPortStatus];
-    NSLog(@"read memory %08x = %08x", address, value);
-    return value;
+static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
+    return (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
 }
 
-- (void)writeMemory:(UInt32)address value:(UInt32)value
+- (void)beforeMemoryTransfer:(UInt32)address length:(NSUInteger)length
 {
-    NSLog(@"write memory %08x = %08x", address, value);
+    if ((address & 0x3) != 0) {
+        @throw [NSException exceptionWithName:@"invalid address"
+                                       reason:[NSString stringWithFormat:@"invalid address: %08x", address]
+                                     userInfo:nil];
+    }
+    if ((length == 0) || ((length & 0x3) != 0)) {
+        @throw [NSException exceptionWithName:@"invalid length"
+                                       reason:[NSString stringWithFormat:@"invalid length: %lu", (unsigned long int)length]
+                                     userInfo:nil];
+    }
+    // TAR auto increment is only guaranteed in the first 10-bits (beyond that is implementation defined)
+    UInt32 endAddress = (UInt32) (address + length - 1);
+    if ((address & ~_tarIncrementBits) != (endAddress & ~_tarIncrementBits)) {
+        @throw [NSException exceptionWithName:@"invalid address range"
+                                       reason:[NSString stringWithFormat:@"invalid address range: %08x to %08x", address, endAddress]
+                                     userInfo:nil];
+    }
+    
     [self writeAccessPort:SWD_AP_TAR value:address];
-    [self writeAccessPort:SWD_AP_DRW value:value];
-    [self checkDebugPortStatus];
-    NSLog(@"write memory %08x = %08x done", address, value);
+    [self accessPortBankSelect:SWD_AP_DRW];
+    [self setOverrunDetection:true];
+}
+
+- (void)afterMemoryTransfer
+{
+    uint32_t status = [self readDebugPort:SWD_DP_STAT];
+    [self setOverrunDetection:false];
+    if (status & (SWD_DP_STAT_WDATAERR | SWD_DP_STAT_STICKYERR | SWD_DP_STAT_STICKYORUN)) {
+        @throw [NSException exceptionWithName:@"sticky error"
+                                       reason:[NSString stringWithFormat:@"sticky error after block transfer: %@", [self getDebugPortStatusMessage:status]]
+                                     userInfo:nil];
+    }
+}
+
+- (void)writeMemoryTransfer:(UInt32)address data:(NSData *)data
+{
+    [self beforeMemoryTransfer:address length:data.length];
+    
+    uint8_t request = [self encodeRequestPort:SWDAccessPort direction:SWDWriteDirection address:SWD_AP_DRW];
+    uint8_t *bytes = (uint8_t *)data.bytes;
+    NSUInteger length = data.length;
+    for (NSUInteger i = 0; i < length; i += 4) {
+        [_serialEngine shiftOutBitsLSBFirstNegativeEdge:request bitCount:8];
+        [self turnToRead];
+        [self skip:4]; // skip over turn and ack
+        [self turnToWriteAndSkip];
+        [self writeUInt32:unpackLittleEndianUInt32(&bytes[i])];
+    }
+    
+    [self afterMemoryTransfer];
+}
+
+- (NSData *)readMemoryTransfer:(UInt32)address length:(UInt32)length
+{
+    [self beforeMemoryTransfer:address length:length];
+    
+    NSMutableData *data = [NSMutableData dataWithCapacity:length];
+
+    uint8_t request = [self encodeRequestPort:SWDAccessPort direction:SWDReadDirection address:SWD_AP_DRW];
+    uint32_t words = length / 4;
+    // note: 1 extra iteration because of 1 read delay in getting data out
+    for (NSUInteger i = 0; i <= words; ++i) {
+        [_serialEngine shiftOutBitsLSBFirstNegativeEdge:request bitCount:8];
+        [self turnToRead];
+        [self skip:4]; // skip over turn and ack
+        [_serialEngine shiftInDataLSBFirstPositiveEdge:4]; // data
+        [_serialEngine shiftInBitsLSBFirstPositiveEdge:1]; // parity
+        [self turnToWriteAndSkip];
+    }
+    [_serialEngine sendImmediate];
+    
+    NSData *output = [_serialEngine read:5 * (words + 1)];
+    UInt8 *outputBytes = (UInt8 *)output.bytes;
+    outputBytes += 5; // skip extra read data
+    for (NSUInteger i = 0; i < words; ++i) {
+        UInt8 *bytes = &outputBytes[i * 5];
+        UInt32 value = (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
+        bool parity = bytes[4] >> 7;
+        if (parity != [self getParityUInt32:value]) {
+            @throw [NSException exceptionWithName:@"read error" reason:@"parity mismatch" userInfo:nil];
+        }
+        [data appendBytes:bytes length:4];
+    }
+
+    [self afterMemoryTransfer];
+
+    return data;
+}
+
+- (void)paginate:(UInt32)address length:(UInt32)length block:(void (^)(UInt32 subaddress, UInt32 offset, UInt32 sublength))block
+{
+    UInt32 offset = 0;
+    while (length > 0) {
+        UInt32 sublength = (_tarIncrementBits + 1) - (address & _tarIncrementBits);
+        if (length < sublength) {
+            sublength = length;
+        }
+        
+        block(address, offset, sublength);
+        
+        address += sublength;
+        length -= sublength;
+        offset += sublength;
+    }
+}
+
+- (void)writeMemory:(UInt32)address data:(NSData *)data
+{
+    [self paginate:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+        [self writeMemoryTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
+    }];
+}
+
+- (NSData *)readMemory:(UInt32)address length:(UInt32)length
+{
+    NSMutableData *data = [NSMutableData dataWithCapacity:length];
+    [self paginate:address length:length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+        [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
+    }];
+    return data;
 }
 
 - (UInt32)readCPUID
@@ -539,21 +672,21 @@ typedef enum {
 
 - (UInt32)readRegister:(UInt16)registerID
 {
-    NSLog(@"read register %04x", registerID);
+//    NSLog(@"read register %04x", registerID);
     [self writeMemory:SWD_MEMORY_DCRSR value:registerID];
     [self waitForRegisterReady];
     uint32_t value = [self readMemory:SWD_MEMORY_DCRDR];
-    NSLog(@"read register %04x = %08x", registerID, value);
+//    NSLog(@"read register %04x = %08x", registerID, value);
     return value;
 }
 
 - (void)writeRegister:(UInt16)registerID value:(UInt32)value
 {
-    NSLog(@"write register %04x = %08x", registerID, value);
+//    NSLog(@"write register %04x = %08x", registerID, value);
     [self writeMemory:SWD_MEMORY_DCRDR value:value];
     [self writeMemory:SWD_MEMORY_DCRSR value:0x00010000 | registerID];
     [self waitForRegisterReady];
-    NSLog(@"write register %04x = %08x done", registerID, value);
+//    NSLog(@"write register %04x = %08x done", registerID, value);
 }
 
 - (void)initializeDebugAccessPort

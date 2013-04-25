@@ -31,6 +31,9 @@
 - (UInt32)readMemory:(UInt32)address;
 - (void)writeMemory:(UInt32)address value:(UInt32)value;
 
+- (void)writeMemory:(UInt32)address data:(NSData *)data;
+- (NSData *)readMemory:(UInt32)address length:(UInt32)length;
+
 - (UInt32)readRegister:(UInt16)registerID;
 - (void)writeRegister:(UInt16)registerID value:(UInt32)value;
 
