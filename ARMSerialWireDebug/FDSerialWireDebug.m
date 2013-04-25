@@ -477,7 +477,6 @@ typedef enum {
 //    NSLog(@"read memory %08x", address);
     [self writeAccessPort:SWD_AP_TAR value:address];
     uint32_t value = [self readAccessPort:SWD_AP_DRW];
-    [self checkDebugPortStatus];
 //    NSLog(@"read memory %08x = %08x", address, value);
     return value;
 }
@@ -487,7 +486,6 @@ typedef enum {
 //    NSLog(@"write memory %08x = %08x", address, value);
     [self writeAccessPort:SWD_AP_TAR value:address];
     [self writeAccessPort:SWD_AP_DRW value:value];
-    [self checkDebugPortStatus];
 //    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
@@ -548,6 +546,15 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }
 }
 
+- (void)requestWriteSkip:(UInt8)request value:(UInt32)value
+{
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:request bitCount:8];
+    [self turnToRead];
+    [self skip:4]; // skip over turn and ack
+    [self turnToWriteAndSkip];
+    [self writeUInt32:value];
+}
+
 - (void)writeMemoryTransfer:(UInt32)address data:(NSData *)data
 {
     [self beforeMemoryTransfer:address length:data.length];
@@ -556,11 +563,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     uint8_t *bytes = (uint8_t *)data.bytes;
     NSUInteger length = data.length;
     for (NSUInteger i = 0; i < length; i += 4) {
-        [_serialEngine shiftOutBitsLSBFirstNegativeEdge:request bitCount:8];
-        [self turnToRead];
-        [self skip:4]; // skip over turn and ack
-        [self turnToWriteAndSkip];
-        [self writeUInt32:unpackLittleEndianUInt32(&bytes[i])];
+        [self requestWriteSkip:request value:unpackLittleEndianUInt32(&bytes[i])];
     }
     
     [self afterMemoryTransfer];
@@ -634,6 +637,92 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
         [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
     }];
     return data;
+}
+
+#define MSC 0x400c0000
+
+#define MSC_WRITECTRL (MSC + 0x008)
+#define MSC_WRITECMD  (MSC + 0x00c)
+#define MSC_ADDRB     (MSC + 0x010)
+#define MSC_WDATA     (MSC + 0x018)
+#define MSC_STATUS    (MSC + 0x01c)
+
+#define MSC_WRITECTRL_WREN BIT(0)
+
+#define MSC_WRITECMD_LADDRIM   BIT(0)
+#define MSC_WRITECMD_ERASEPAGE BIT(1)
+#define MSC_WRITECMD_WRITEEND  BIT(2)
+#define MSC_WRITECMD_WRITEONCE BIT(3)
+
+#define MSC_STATUS_BUSY       BIT(0)
+#define MSC_STATUS_LOCKED     BIT(1)
+#define MSC_STATUS_INVADDR    BIT(2)
+#define MSC_STATUS_WDATAREADY BIT(3)
+
+- (void)memorySystemControllerStatusWait:(UInt32)mask value:(UInt32)value
+{
+    UInt32 status;
+    while (((status = [self readMemory:MSC_STATUS]) & mask) == value);
+}
+
+- (void)loadAddress:(UInt32)address
+{
+    [self writeMemory:MSC_WRITECTRL value:MSC_WRITECTRL_WREN];
+    [self writeMemory:MSC_ADDRB value:address];
+    [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_LADDRIM];
+    UInt32 status = [self readMemory:MSC_STATUS];
+    if (status & (MSC_STATUS_INVADDR | MSC_STATUS_LOCKED)) {
+        NSLog(@"fail");
+    }
+}
+
+- (void)erase:(UInt32)address
+{
+    [self loadAddress:address];
+    [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEPAGE];
+    [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+}
+
+- (void)program:(UInt32)address data:(NSData *)data
+{
+    if ((address & 0x3) != 0) {
+        @throw [NSException exceptionWithName:@"invalid address"
+                                       reason:[NSString stringWithFormat:@"invalid address: %08x", address]
+                                     userInfo:nil];
+    }
+    UInt32 length = (UInt32)data.length;
+    if ((length == 0) || ((length & 0x3) != 0)) {
+        @throw [NSException exceptionWithName:@"invalid length"
+                                       reason:[NSString stringWithFormat:@"invalid length: %lu", (unsigned long int)length]
+                                     userInfo:nil];
+    }
+
+    [self loadAddress:address];
+    [self accessPortBankSelect:0x00];
+    
+    [self setOverrunDetection:true];
+    UInt8 apTarRequest = [self encodeRequestPort:SWDAccessPort direction:SWDWriteDirection address:SWD_AP_TAR];
+    UInt8 apDrwRequest = [self encodeRequestPort:SWDAccessPort direction:SWDWriteDirection address:SWD_AP_DRW];
+    UInt8 *bytes = (UInt8 *)data.bytes;
+    for (NSUInteger i = 0; i < length; i += 4) {
+        UInt32 value = unpackLittleEndianUInt32(&bytes[i]);
+
+// !!! This is the "correct" procedure.  However, it is slow.
+// We don't need the two way status waits, because going over USB via FTDI, etc
+// is slower than the operations take. -denis
+//        [self memorySystemControllerStatusWait:MSC_STATUS_WDATAREADY value:0];
+//        [self writeMemory:MSC_WDATA value:value];
+//        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_WRITEONCE];
+//        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+
+        [self requestWriteSkip:apTarRequest value:MSC_WDATA];
+        [self requestWriteSkip:apDrwRequest value:value];
+        [self requestWriteSkip:apTarRequest value:MSC_WRITECMD];
+        [self requestWriteSkip:apDrwRequest value:MSC_WRITECMD_WRITEONCE];
+    }
+    [self flush];
+    
+    [self afterMemoryTransfer];
 }
 
 - (UInt32)readCPUID
