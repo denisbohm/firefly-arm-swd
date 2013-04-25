@@ -35,5 +35,6 @@
 
 - (void)write;
 - (NSData *)read:(UInt32)length;
+- (NSData *)read;
 
 @end

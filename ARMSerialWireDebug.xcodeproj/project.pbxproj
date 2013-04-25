@@ -98,7 +98,6 @@
 		92B8B81E16FF70BD00BE38ED = {
 			isa = PBXGroup;
 			children = (
-				9262620216FF73D50067A371 /* IOKit.framework */,
 				92B8B83116FF70BD00BE38ED /* ARMSerialWireDebug */,
 				92B8B84716FF70BD00BE38ED /* ARMSerialWireDebugTests */,
 				92B8B82A16FF70BD00BE38ED /* Frameworks */,
@@ -119,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				92B8B82B16FF70BD00BE38ED /* Cocoa.framework */,
+				9262620216FF73D50067A371 /* IOKit.framework */,
 				92B8B84116FF70BD00BE38ED /* SenTestingKit.framework */,
 				92B8B82D16FF70BD00BE38ED /* Other Frameworks */,
 			);
@@ -426,6 +426,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
+				INSTALL_PATH = "@executable_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = framework;
 			};
@@ -441,6 +442,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
+				INSTALL_PATH = "@executable_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = framework;
 			};

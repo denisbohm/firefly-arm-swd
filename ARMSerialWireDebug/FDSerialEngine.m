@@ -134,6 +134,10 @@
 
 - (void)write
 {
+    if (_writeData.length == 0) {
+        return;
+    }
+//    NSLog(@"write %@", _writeData);
     [_usbDevice writePipeAsync:_writePipe data:_writeData];
     [_writeData setLength:0];
 }
@@ -141,12 +145,15 @@
 - (NSData *)read
 {
     NSData *data = [_usbDevice readPipe:_readPipe length:4096];
+//    NSLog(@"read %@", data);
     return [data subdataWithRange:NSMakeRange(2, data.length - 2)];
 }
 
 - (NSData *)read:(UInt32)length
 {
-    NSMutableData *data = [NSMutableData dataWithCapacity:length];
+    [self write];
+    
+    NSMutableData *data = [NSMutableData dataWithCapacity:2 + length];
     while (data.length < length) {
         NSData *subdata = [self read];
         [data appendData:subdata];

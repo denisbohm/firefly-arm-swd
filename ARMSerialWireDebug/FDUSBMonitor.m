@@ -18,6 +18,7 @@
 
 @property IONotificationPortRef notificationPort;
 @property NSMutableArray *usbDevices;
+@property NSThread *thread;
 
 @end
 
@@ -70,7 +71,7 @@ void USBDeviceInterest(
                                                                      &score
                                                                      );
         //Don’t need the device object after intermediate plug-in is created
-        kernReturn = IOObjectRelease(service);
+//        kernReturn = IOObjectRelease(service);
         if ((kIOReturnSuccess != kernReturn) || !plugInInterface) {
             FDLog(@"failure IOCreatePlugInInterfaceForService: %08x", kernReturn);
             continue;
@@ -86,8 +87,7 @@ void USBDeviceInterest(
         //is created
         (*plugInInterface)->Release(plugInInterface);
         if (result || !deviceInterface) {
-            printf("Couldn’t create a device interface (%08x)\n",
-                   (int) result);
+            printf("Couldn’t create a device interface (%08x)\n", (int) result);
             continue;
         }
         //Check these values for confirmation
@@ -139,7 +139,7 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
     [usbMonitor USBDevicesAdded:iterator];
 }
 
-- (void)start
+- (void)USBStart
 {
     mach_port_t masterPort;
     kern_return_t kernReturn = IOMasterPort(MACH_PORT_NULL, &masterPort);
@@ -147,6 +147,11 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
         FDLog(@"failure IOMasterPort: %08x", kernReturn);
     }
     _notificationPort = IONotificationPortCreate(masterPort);
+    
+    CFRunLoopSourceRef runLoopSourceRef = IONotificationPortGetRunLoopSource(_notificationPort);
+    CFRunLoopRef runLoopRef = CFRunLoopGetCurrent();
+    CFRunLoopAddSource(runLoopRef, runLoopSourceRef, kCFRunLoopDefaultMode);
+    
     CFDictionaryRef matchingDictionary = IOServiceMatching(kIOUSBDeviceClassName);
     io_iterator_t gRawAddedIter;
     kernReturn = IOServiceAddMatchingNotification(
@@ -160,6 +165,22 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
         FDLog(@"failure IOServiceAddMatchingNotification: %08x", kernReturn);
     }
     [self USBDevicesAdded:gRawAddedIter];
+}
+
+- (void)USBRun:(id)argument
+{
+    [self USBStart];
+    
+    NSRunLoop* runLoop = [NSRunLoop currentRunLoop];
+    while (true) {
+        [runLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+    }
+}
+
+- (void)start
+{
+    _thread = [[NSThread alloc] initWithTarget:self selector:@selector(USBRun:) object:nil];
+    [_thread start];
 }
 
 @end

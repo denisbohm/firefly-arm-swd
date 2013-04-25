@@ -16,6 +16,8 @@
 
 - (void)initialize;
 
+- (void)getGpios;
+
 - (void)setGpioIndicator:(bool)value;
 - (void)setGpioReset:(bool)value;
 
@@ -23,6 +25,8 @@
 - (UInt32)readDebugPortIDCode;
 - (void)initializeDebugAccessPort;
 - (UInt32)readCPUID;
+
+- (void)checkDebugPortStatus;
 
 - (UInt32)readMemory:(UInt32)address;
 - (void)writeMemory:(UInt32)address value:(UInt32)value;

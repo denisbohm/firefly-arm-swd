@@ -88,7 +88,7 @@
 @property UInt16 gpioDirections;
 
 @property NSUInteger gpioWriteBit;
-@property NSUInteger gpioNotResetBit;
+@property NSUInteger gpioResetBit;
 @property NSUInteger gpioIndicatorBit;
 
 @property NSUInteger ackWaitRetryCount;
@@ -101,13 +101,26 @@
 
 @implementation FDSerialWireDebug
 
+// ADBUS0 OUT TCK
+// ADBUS1 OUT TDI
+// ADBUS2  IN TDO
+// ADBUS3 OUT TMS
+// ADBUS4 OUT ?
+// ADBUS5  IN TARGET DETECT
+// ADBUS6  IN TSRST
+// ADBUS7  IN !RTCK
+// ACBUS0 OUT !TRST
+// ACBUS1 OUT !TSRST
+// ACBUS2 OUT TRST
+// ACBUS3 OUT LED
+
 - (id)init
 {
     if (self = [super init]) {
         _gpioDirections = 0b0000111100011011;
         _gpioOutputs = 0b0000001000000000;
         _gpioWriteBit = 3;
-        _gpioNotResetBit = 9;
+        _gpioResetBit = 9;
         _gpioIndicatorBit = 11;
         
         _ackWaitRetryCount = 3;
@@ -127,11 +140,14 @@
     [_serialEngine setMPSEEBitMode];
     [_serialEngine reset];
     
-    _gpioOutputs = 0x0000;
-    _gpioDirections = 0x0000;
     [_serialEngine setLowByte:_gpioOutputs direction:_gpioDirections];
     [_serialEngine setHighByte:_gpioOutputs >> 8 direction:_gpioDirections >> 8];
     [_serialEngine write];
+    
+    NSData *data = [_serialEngine read];
+    NSLog(@"initial read %@", data);
+    
+    [self getGpios];
 }
 
 - (void)getGpios
@@ -142,7 +158,8 @@
     [_serialEngine write];
     NSData *data = [_serialEngine read:2];
     UInt8 *bytes = (UInt8 *)data.bytes;
-    _gpioOutputs = (bytes[1] << 8) | bytes[0];
+    _gpioInputs = (bytes[1] << 8) | bytes[0];
+    NSLog(@"gpios %04x", _gpioInputs);
 }
 
 - (void)setGpioBit:(NSUInteger)bit value:(bool)value
@@ -157,6 +174,7 @@
     if (outputs == _gpioOutputs) {
         return;
     }
+    _gpioOutputs = outputs;
     if (mask & 0x00ff) {
         [_serialEngine setLowByte:_gpioOutputs direction:_gpioDirections];
     } else {
@@ -171,22 +189,34 @@
 
 - (void)setGpioReset:(bool)value
 {
-    [self setGpioBit:_gpioNotResetBit value:!value];
+    [self setGpioBit:_gpioResetBit value:value];
 }
 
-- (void)shiftOutTurnToWrite
+- (void)turnToWrite
 {
     [self setGpioBit:_gpioWriteBit value:true];
 }
 
-- (void)shiftOutTurnToRead
+- (void)turnToRead
 {
     [self setGpioBit:_gpioWriteBit value:false];
 }
 
+- (void)turnToWriteAndSkip
+{
+    [self turnToWrite];
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0 bitCount:1];
+}
+
+- (void)turnToReadAndSkip
+{
+    [self turnToRead];
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0 bitCount:1];
+}
+
 - (void)resetDebugAccessPort
 {
-    [self shiftOutTurnToWrite];
+    [self turnToWrite];
     UInt8 bytes[] = {
         0xff,
         0xff,
@@ -233,11 +263,11 @@ typedef enum {
 
 - (UInt8)encodeRequestPort:(SWDPort)port direction:(SWDDirection)direction address:(UInt8)address
 {
-    UInt8 request = 0b10000001;
+    UInt8 request = 0b10000001; // Start (bit 0) & Park (bit 7)
     if (port == SWDAccessPort) {
         request |= 0b00000010;
     }
-    if (port == SWDReadDirection) {
+    if (direction == SWDReadDirection) {
         request |= 0b00000100;
     }
     request |= (address << 1) & 0b00011000;
@@ -266,7 +296,7 @@ typedef enum {
 - (SWDAck)request:(UInt8)request
 {
     [_serialEngine shiftOutBitsLSBFirstNegativeEdge:request bitCount:8];
-    [self shiftOutTurnToRead];
+    [self turnToRead];
     [self shiftInTurnAndAck];
     [_serialEngine sendImmediate];
     NSData *data = [_serialEngine read:1];
@@ -296,23 +326,25 @@ typedef enum {
 
 - (UInt32)readPort:(SWDPort)port registerOffset:(UInt8)registerOffset
 {
+    NSLog(@"read  %@ %02x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset);
     UInt8 request = [self encodeRequestPort:port direction:SWDReadDirection address:registerOffset];
     for (NSUInteger retry = 0; retry < _ackWaitRetryCount; ++retry) {
         SWDAck ack = [self request:request];
         UInt32 value;
         if (_overrunDetectionEnabled) {
             value = [self readUInt32];
-            [self shiftOutTurnToWrite];
+            [self turnToWriteAndSkip];
         }
         if (ack == SWDOKAck) {
             if (!_overrunDetectionEnabled) {
                 value = [self readUInt32];
-                [self shiftOutTurnToWrite];
+                [self turnToWriteAndSkip];
             }
+            NSLog(@"read  %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
             return value;
         }
         if (!_overrunDetectionEnabled) {
-            [self shiftOutTurnToWrite];
+            [self turnToWriteAndSkip];
         }
         if (ack != SWDWaitAck) {
             @throw [NSException exceptionWithName:@"read port error" reason:@"unexpected ack" userInfo:nil];
@@ -323,10 +355,11 @@ typedef enum {
 
 - (void)writePort:(SWDPort)port registerOffset:(UInt8)registerOffset value:(UInt32)value
 {
+    NSLog(@"write %@ %02x = %08x", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
     UInt8 request = [self encodeRequestPort:port direction:SWDWriteDirection address:registerOffset];
     for (NSUInteger retry = 0; retry < _ackWaitRetryCount; ++retry) {
         SWDAck ack = [self request:request];
-        [self shiftOutTurnToWrite];
+        [self turnToWriteAndSkip];
         if (_overrunDetectionEnabled) {
             [self writeUInt32:value];
         }
@@ -334,6 +367,7 @@ typedef enum {
             if (!_overrunDetectionEnabled) {
                 [self writeUInt32:value];
             }
+            NSLog(@"write %@ %02x = %08x done", port == SWDDebugPort ? @"dp" : @"ap", registerOffset, value);
             return;
         }
         if (ack != SWDWaitAck) {
@@ -406,21 +440,31 @@ typedef enum {
 
 - (void)accessPortBankSelect:(UInt8)registerOffset
 {
-    [self writePort:SWDDebugPort registerOffset:SWD_DP_SELECT value:registerOffset];
+    [self writePort:SWDDebugPort registerOffset:SWD_DP_SELECT value:registerOffset & 0xf0];
 }
 
 - (UInt32)readAccessPort:(UInt8)registerOffset
 {
-    [self writePort:SWDDebugPort registerOffset:SWD_DP_SELECT value:registerOffset & 0xf0]; // bank select
+    NSLog(@"read access port %02x", registerOffset);
+    [self accessPortBankSelect:registerOffset];
     [self readPort:SWDAccessPort registerOffset:registerOffset];
-    return [self readPort:SWDDebugPort registerOffset:SWD_DP_RDBUFF];
+    uint32_t value = [self readPort:SWDDebugPort registerOffset:SWD_DP_RDBUFF];
+    NSLog(@"read access port %02x = %08x", registerOffset, value);
+    return value;
+}
+
+- (void)flush
+{
+    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0x00 bitCount:8];
 }
 
 - (void)writeAccessPort:(UInt8)registerOffset value:(UInt32)value
 {
-    [self writePort:SWDDebugPort registerOffset:SWD_DP_SELECT value:registerOffset & 0xf0]; // bank select
+    NSLog(@"write access port %02x = %08x", registerOffset, value);
+    [self accessPortBankSelect:registerOffset];
     [self writePort:SWDAccessPort registerOffset:registerOffset value:value];
-    [_serialEngine shiftOutBitsLSBFirstNegativeEdge:0x00 bitCount:8]; // flush
+    [self flush];
+    NSLog(@"write access port %02x = %08x done", registerOffset, value);
 }
 
 - (void)setOverrunDetection:(bool)enabled
@@ -442,14 +486,21 @@ typedef enum {
 
 - (UInt32)readMemory:(UInt32)address
 {
+    NSLog(@"read memory %08x", address);
     [self writeAccessPort:SWD_AP_TAR value:address];
-    return [self readAccessPort:SWD_AP_DRW];
+    uint32_t value = [self readAccessPort:SWD_AP_DRW];
+    [self checkDebugPortStatus];
+    NSLog(@"read memory %08x = %08x", address, value);
+    return value;
 }
 
 - (void)writeMemory:(UInt32)address value:(UInt32)value
 {
+    NSLog(@"write memory %08x = %08x", address, value);
     [self writeAccessPort:SWD_AP_TAR value:address];
     [self writeAccessPort:SWD_AP_DRW value:value];
+    [self checkDebugPortStatus];
+    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
 - (UInt32)readCPUID
@@ -488,16 +539,21 @@ typedef enum {
 
 - (UInt32)readRegister:(UInt16)registerID
 {
+    NSLog(@"read register %04x", registerID);
     [self writeMemory:SWD_MEMORY_DCRSR value:registerID];
     [self waitForRegisterReady];
-    return [self readMemory:SWD_MEMORY_DCRDR];
+    uint32_t value = [self readMemory:SWD_MEMORY_DCRDR];
+    NSLog(@"read register %04x = %08x", registerID, value);
+    return value;
 }
 
 - (void)writeRegister:(UInt16)registerID value:(UInt32)value
 {
+    NSLog(@"write register %04x = %08x", registerID, value);
     [self writeMemory:SWD_MEMORY_DCRDR value:value];
     [self writeMemory:SWD_MEMORY_DCRSR value:0x00010000 | registerID];
     [self waitForRegisterReady];
+    NSLog(@"write register %04x = %08x done", registerID, value);
 }
 
 - (void)initializeDebugAccessPort
@@ -518,7 +574,7 @@ typedef enum {
     [self waitForDebugPortStatus:SWD_DP_CTRL_CDBGPWRUPACK];
     
     [self writeDebugPort:SWD_DP_SELECT value:0];
-    [self writeDebugPort:SWD_AP_CSW value:
+    [self writeAccessPort:SWD_AP_CSW value:
      SWD_AP_CSW_DBGSWENABLE |
      SWD_AP_CSW_MASTER_DEBUG |
      SWD_AP_CSW_HPROT |
