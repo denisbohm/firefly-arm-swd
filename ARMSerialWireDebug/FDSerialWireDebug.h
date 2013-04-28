@@ -34,8 +34,11 @@
 - (void)writeMemory:(UInt32)address data:(NSData *)data;
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length;
 
+- (void)massErase;
 - (void)erase:(UInt32)address;
 - (void)program:(UInt32)address data:(NSData *)data;
+
+- (void)reset;
 
 - (UInt32)readRegister:(UInt16)registerID;
 - (void)writeRegister:(UInt16)registerID value:(UInt32)value;
@@ -43,5 +46,8 @@
 - (void)halt;
 - (void)step;
 - (void)run;
+
+- (BOOL)isHalted;
+- (void)waitForHalt:(NSTimeInterval)timeout;
 
 @end

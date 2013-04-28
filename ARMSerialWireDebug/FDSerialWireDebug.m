@@ -606,11 +606,11 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     return data;
 }
 
-- (void)paginate:(UInt32)address length:(UInt32)length block:(void (^)(UInt32 subaddress, UInt32 offset, UInt32 sublength))block
+- (void)paginate:(UInt32)incrementBits address:(UInt32)address length:(UInt32)length block:(void (^)(UInt32 subaddress, UInt32 offset, UInt32 sublength))block
 {
     UInt32 offset = 0;
     while (length > 0) {
-        UInt32 sublength = (_tarIncrementBits + 1) - (address & _tarIncrementBits);
+        UInt32 sublength = (incrementBits + 1) - (address & incrementBits);
         if (length < sublength) {
             sublength = length;
         }
@@ -625,7 +625,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (void)writeMemory:(UInt32)address data:(NSData *)data
 {
-    [self paginate:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+    [self paginate:_tarIncrementBits address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
         [self writeMemoryTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
     }];
 }
@@ -633,7 +633,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length
 {
     NSMutableData *data = [NSMutableData dataWithCapacity:length];
-    [self paginate:address length:length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+    [self paginate:_tarIncrementBits address:address length:length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
         [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
     }];
     return data;
@@ -646,23 +646,42 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 #define MSC_ADDRB     (MSC + 0x010)
 #define MSC_WDATA     (MSC + 0x018)
 #define MSC_STATUS    (MSC + 0x01c)
+#define MSC_MASSLOCK  (MSC + 0x054)
 
 #define MSC_WRITECTRL_WREN BIT(0)
 
-#define MSC_WRITECMD_LADDRIM   BIT(0)
-#define MSC_WRITECMD_ERASEPAGE BIT(1)
-#define MSC_WRITECMD_WRITEEND  BIT(2)
-#define MSC_WRITECMD_WRITEONCE BIT(3)
+#define MSC_WRITECMD_LADDRIM    BIT(0)
+#define MSC_WRITECMD_ERASEPAGE  BIT(1)
+#define MSC_WRITECMD_WRITEEND   BIT(2)
+#define MSC_WRITECMD_WRITEONCE  BIT(3)
+#define MSC_WRITECMD_WRITETRIG  BIT(4)
+#define MSC_WRITECMD_ERASEABORT BIT(5)
+#define MSC_WRITECMD_ERASEMAIN0 BIT(8)
+#define MSC_WRITECMD_ERASEMAIN1 BIT(9)
+#define MSC_WRITECMD_CLEARWDATA BIT(12)
 
 #define MSC_STATUS_BUSY       BIT(0)
 #define MSC_STATUS_LOCKED     BIT(1)
 #define MSC_STATUS_INVADDR    BIT(2)
 #define MSC_STATUS_WDATAREADY BIT(3)
 
+#define MSC_MASSLOCK_UNLOCK 0x631a
+
 - (void)memorySystemControllerStatusWait:(UInt32)mask value:(UInt32)value
 {
-    UInt32 status;
-    while (((status = [self readMemory:MSC_STATUS]) & mask) == value);
+    NSTimeInterval timeout = 0.250;
+    NSDate *start = [NSDate date];
+    NSDate *now;
+    do {
+        UInt32 status = [self readMemory:MSC_STATUS];
+        if ((status & mask) != value) {
+            return;
+        }
+        
+        [NSThread sleepForTimeInterval:0.0001];
+        now = [NSDate date];
+    } while ([now timeIntervalSinceDate:start] < timeout);
+    [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];
 }
 
 - (void)loadAddress:(UInt32)address
@@ -676,6 +695,14 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }
 }
 
+- (void)massErase
+{
+    [self writeMemory:MSC_WRITECTRL value:MSC_WRITECTRL_WREN];
+    [self writeMemory:MSC_MASSLOCK value:MSC_MASSLOCK_UNLOCK];
+    [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEMAIN0];
+    [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+}
+
 - (void)erase:(UInt32)address
 {
     [self loadAddress:address];
@@ -683,7 +710,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
 }
 
-- (void)program:(UInt32)address data:(NSData *)data
+- (void)programTransfer:(UInt32)address data:(NSData *)data
 {
     if ((address & 0x3) != 0) {
         @throw [NSException exceptionWithName:@"invalid address"
@@ -725,6 +752,22 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self afterMemoryTransfer];
 }
 
+- (void)program:(UInt32)address data:(NSData *)data
+{
+    [self paginate:0x7ff address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+        [self programTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
+    }];
+}
+
+#define SCB 0xE000ED00
+#define SCB_AIRCR (SCB + 0x00C)
+#define SCB_AIRCR_SYSRESETREQ 0x05FA0004
+
+- (void)reset
+{
+    [self writeMemory:SCB_AIRCR value:SCB_AIRCR_SYSRESETREQ];
+}
+
 - (UInt32)readCPUID
 {
     return [self readMemory:SWD_MEMORY_CPUID];
@@ -746,6 +789,27 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 {
     [self writeMemory:SWD_MEMORY_DHCSR value:SWD_DHCSR_DBGKEY | SWD_DHCSR_CTRL_DEBUGEN |
      SWD_DHCSR_CTRL_MASKINTS];
+}
+
+- (BOOL)isHalted
+{
+    UInt32 dhcsr = [self readMemory:SWD_MEMORY_DHCSR];
+    return dhcsr & SWD_DHCSR_STAT_HALT ? YES : NO;
+}
+
+- (void)waitForHalt:(NSTimeInterval)timeout
+{
+    NSDate *start = [NSDate date];
+    NSDate *now;
+    do {
+        if ([self isHalted]) {
+            return;
+        }
+        
+        [NSThread sleepForTimeInterval:0.0001];
+        now = [NSDate date];
+    } while ([now timeIntervalSinceDate:start] < timeout);
+    [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];
 }
 
 - (void)waitForRegisterReady
