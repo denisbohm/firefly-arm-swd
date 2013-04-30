@@ -438,9 +438,17 @@ typedef enum {
      SWD_DP_ABORT_STKCMPCLR];
     
     UInt32 recoveryStatus = [self readDebugPort:SWD_DP_STAT];
-    if (status & (SWD_DP_STAT_WDATAERR | SWD_DP_STAT_STICKYERR | SWD_DP_STAT_STICKYORUN)) {
+    if (recoveryStatus & (SWD_DP_STAT_WDATAERR | SWD_DP_STAT_STICKYERR | SWD_DP_STAT_STICKYORUN)) {
         FDLog(@"debug port status recovery failed: %@", [self getDebugPortStatusMessage:recoveryStatus]);
     }
+}
+
+- (void)recoverFromDebugPortError
+{
+    [self resetDebugAccessPort];
+    UInt32 debugPortIDCode = [self readDebugPortIDCode];
+    NSLog(@"DPID = %08x", debugPortIDCode);
+    [self checkDebugPortStatus];
 }
 
 - (void)accessPortBankSelect:(UInt8)registerOffset
@@ -475,17 +483,36 @@ typedef enum {
 - (UInt32)readMemory:(UInt32)address
 {
 //    NSLog(@"read memory %08x", address);
-    [self writeAccessPort:SWD_AP_TAR value:address];
-    uint32_t value = [self readAccessPort:SWD_AP_DRW];
-//    NSLog(@"read memory %08x = %08x", address, value);
-    return value;
+    for (NSUInteger i = 0; i < 3; ++i) {
+        @try {
+            [self writeAccessPort:SWD_AP_TAR value:address];
+            uint32_t value = [self readAccessPort:SWD_AP_DRW];
+//            NSLog(@"read memory %08x = %08x", address, value);
+            return value;
+        } @catch (NSException *e) {
+            if (i == 2) {
+                @throw;
+            }
+            [self recoverFromDebugPortError];
+        }
+    }
 }
 
 - (void)writeMemory:(UInt32)address value:(UInt32)value
 {
 //    NSLog(@"write memory %08x = %08x", address, value);
-    [self writeAccessPort:SWD_AP_TAR value:address];
-    [self writeAccessPort:SWD_AP_DRW value:value];
+    for (NSUInteger i = 0; i < 3; ++i) {
+        @try {
+            [self writeAccessPort:SWD_AP_TAR value:address];
+            [self writeAccessPort:SWD_AP_DRW value:value];
+            break;
+        } @catch (NSException *e) {
+            if (i == 2) {
+                @throw;
+            }
+            [self recoverFromDebugPortError];
+        }
+    }
 //    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
@@ -595,8 +622,11 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
         UInt8 *bytes = &outputBytes[i * 5];
         UInt32 value = (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
         bool parity = bytes[4] >> 7;
-        if (parity != [self getParityUInt32:value]) {
-            @throw [NSException exceptionWithName:@"read error" reason:@"parity mismatch" userInfo:nil];
+        bool actual = [self getParityUInt32:value];
+        if (parity != actual) {
+            @throw [NSException exceptionWithName:@"read error"
+                                           reason:@"parity mismatch"
+                                         userInfo:nil];
         }
         [data appendBytes:bytes length:4];
     }
@@ -615,7 +645,17 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
             sublength = length;
         }
         
-        block(address, offset, sublength);
+        for (NSUInteger i = 0; i < 3; ++i) {
+            @try {
+                block(address, offset, sublength);
+                break;
+            } @catch (NSException *e) {
+                if (i == 2) {
+                    @throw;
+                }
+                [self recoverFromDebugPortError];
+            }
+        }
         
         address += sublength;
         length -= sublength;
@@ -632,11 +672,14 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length
 {
-    NSMutableData *data = [NSMutableData dataWithCapacity:length];
-    [self paginate:_tarIncrementBits address:address length:length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+    uint32_t readAddress = address & ~0x03;
+    uint32_t readLength = length + (address & 0x03);
+    readLength += (4 - (readLength & 0x3)) & 0x03;
+    NSMutableData *data = [NSMutableData dataWithCapacity:readLength];
+    [self paginate:_tarIncrementBits address:readAddress length:readLength block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
         [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
     }];
-    return data;
+    return [data subdataWithRange:NSMakeRange(address - readAddress, length)];
 }
 
 #define MSC 0x400c0000
@@ -757,6 +800,70 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self paginate:0x7ff address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
         [self programTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
     }];
+}
+
+#define FP_CTRL 0xE0002000
+#define FP_REMAP 0xE0002004
+#define FP_COMP0 0xE0002008
+#define FP_COMP1 0xE000200C
+#define FP_COMP2 0xE0002010
+#define FP_COMP3 0xE0002014
+#define FP_COMP4 0xE0002018
+#define FP_COMP5 0xE000201C
+#define FP_COMP6 0xE0002020
+#define FP_COMP7 0xE0002024
+#define PID4 0xE0002FD0
+#define PID5 0xE0002FD4
+#define PID6 0xE0002FD8
+#define PID7 0xE0002FDC
+#define PID0 0xE0002FE0
+#define PID1 0xE0002FE4
+#define PID2 0xE0002FE8
+#define PID3 0xE0002FEC
+#define CID0 0xE0002FF0
+#define CID1 0xE0002FF4
+#define CID2 0xE0002FF8
+#define CID3 0xE0002FFC
+
+#define FP_CTRL_KEY    BIT(1)
+#define FP_CTRL_ENABLE BIT(0)
+
+#define FP_COMP_REPLACE_U 0x80000000
+#define FP_COMP_REPLACE_L 0x40000000
+#define FP_COMP_ADDRESS 0x1ffffffc
+#define FP_COMP_ENABLE BIT(0)
+
+- (uint32_t)breakpointCount
+{
+    uint32_t value = [self readMemory:FP_CTRL];
+    uint32_t numCode = ((value >> 8) & 0x70) | ((value >> 4) & 0xf);
+    return numCode;
+}
+
+- (void)enableBreakpoints:(bool)enable
+{
+    [self writeMemory:FP_CTRL value:FP_CTRL_KEY | (enable ? FP_CTRL_ENABLE : 0)];
+}
+
+- (bool)getBreakpoint:(uint32_t)n address:(uint32_t *)address
+{
+    uint32_t value = [self readMemory:FP_COMP0 + n * 4];
+    if (value & FP_COMP_ENABLE) {
+        *address = (value & FP_COMP_ADDRESS) | ((value & FP_COMP_REPLACE_U) ? 0x2 : 0x0);
+        return true;
+    }
+    return false;
+}
+
+- (void)setBreakpoint:(uint32_t)n address:(uint32_t)address
+{
+    uint32_t value = ((address & 0x2) ? FP_COMP_REPLACE_U : FP_COMP_REPLACE_L) | (address & ~0x3) | FP_COMP_ENABLE;
+    [self writeMemory:FP_COMP0 + n * 4 value:value];
+}
+
+- (void)disableBreakpoint:(uint32_t)n
+{
+    [self writeMemory:FP_COMP0 + n * 4 value:0];
 }
 
 #define SCB 0xE000ED00

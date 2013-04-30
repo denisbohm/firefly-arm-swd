@@ -50,4 +50,10 @@
 - (BOOL)isHalted;
 - (void)waitForHalt:(NSTimeInterval)timeout;
 
+- (uint32_t)breakpointCount;
+- (void)enableBreakpoints:(bool)enable;
+- (bool)getBreakpoint:(uint32_t)n address:(uint32_t *)address;
+- (void)setBreakpoint:(uint32_t)n address:(uint32_t)address;
+- (void)disableBreakpoint:(uint32_t)n;
+
 @end
