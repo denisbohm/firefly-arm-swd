@@ -8,9 +8,17 @@
 
 #import <Foundation/Foundation.h>
 
+@protocol FDLoggerConsumer <NSObject>
+
+- (void)logFile:(char *)file line:(NSUInteger)line class:(NSString *)class method:(NSString *)method message:(NSString *)message;
+
+@end
+
 @interface FDLogger : NSObject
 
 + (void)logFile:(char *)file line:(NSUInteger)line class:(NSString *)class method:(NSString *)method format:(NSString *)format, ...;
+
++ (void)setConsumer:(id<FDLoggerConsumer>)consumer;
 
 @end
 

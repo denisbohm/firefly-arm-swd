@@ -17,10 +17,17 @@
 @property IOUSBInterfaceInterface **interface;
 @property NSData *writeData;
 @property NSMutableData *readData;
+@property UInt32 location;
+@property NSString *typeAndLocation;
 
 @end
 
 @implementation FDUSBDevice
+
+- (NSString *)description
+{
+    return _typeAndLocation ? _typeAndLocation : [super description];
+}
 
 - (void)open
 {
@@ -95,6 +102,12 @@
            break;
         }
         
+        kernReturn = (*interface)->GetLocationID(interface, &_location);
+        if (kernReturn != KERN_SUCCESS) {
+            NSLog(@"GetLocationID failed (%08x)", kernReturn);
+        }
+        _typeAndLocation = [NSString stringWithFormat:@"Olimex ARM-USB-TINY-H %u", _location];
+
         // use the first interface -denis
         _interface = interface;
         
