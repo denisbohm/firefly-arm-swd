@@ -480,15 +480,12 @@ typedef enum {
 //    NSLog(@"write access port %02x = %08x done", registerOffset, value);
 }
 
-- (UInt32)readMemory:(UInt32)address
+- (void)recoverAndRetry:(void (^)(void))block
 {
-//    NSLog(@"read memory %08x", address);
     for (NSUInteger i = 0; i < 3; ++i) {
         @try {
-            [self writeAccessPort:SWD_AP_TAR value:address];
-            uint32_t value = [self readAccessPort:SWD_AP_DRW];
-//            NSLog(@"read memory %08x = %08x", address, value);
-            return value;
+            block();
+            break;
         } @catch (NSException *e) {
             if (i == 2) {
                 @throw;
@@ -498,21 +495,24 @@ typedef enum {
     }
 }
 
+- (UInt32)readMemory:(UInt32)address
+{
+//    NSLog(@"read memory %08x", address);
+    __block UInt32 value;
+    [self recoverAndRetry:^(void) {
+        [self writeAccessPort:SWD_AP_TAR value:address];
+        value = [self readAccessPort:SWD_AP_DRW];
+    }];
+    return value;
+}
+
 - (void)writeMemory:(UInt32)address value:(UInt32)value
 {
 //    NSLog(@"write memory %08x = %08x", address, value);
-    for (NSUInteger i = 0; i < 3; ++i) {
-        @try {
-            [self writeAccessPort:SWD_AP_TAR value:address];
-            [self writeAccessPort:SWD_AP_DRW value:value];
-            break;
-        } @catch (NSException *e) {
-            if (i == 2) {
-                @throw;
-            }
-            [self recoverFromDebugPortError];
-        }
-    }
+    [self recoverAndRetry:^(void) {
+        [self writeAccessPort:SWD_AP_TAR value:address];
+        [self writeAccessPort:SWD_AP_DRW value:value];
+    }];
 //    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
@@ -740,17 +740,21 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (void)massErase
 {
-    [self writeMemory:MSC_WRITECTRL value:MSC_WRITECTRL_WREN];
-    [self writeMemory:MSC_MASSLOCK value:MSC_MASSLOCK_UNLOCK];
-    [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEMAIN0];
-    [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+    [self recoverAndRetry:^(void) {
+        [self writeMemory:MSC_WRITECTRL value:MSC_WRITECTRL_WREN];
+        [self writeMemory:MSC_MASSLOCK value:MSC_MASSLOCK_UNLOCK];
+        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEMAIN0];
+        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+    }];
 }
 
 - (void)erase:(UInt32)address
 {
-    [self loadAddress:address];
-    [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEPAGE];
-    [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+    [self recoverAndRetry:^(void) {
+        [self loadAddress:address];
+        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEPAGE];
+        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+    }];
 }
 
 - (void)programTransfer:(UInt32)address data:(NSData *)data
