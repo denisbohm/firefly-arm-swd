@@ -47,6 +47,8 @@ typedef struct {
 @property FDAddressRange stackRange;
 @property FDAddressRange heapRange;
 
+- (void)identify;
+
 - (void)run:(UInt32)pc timeout:(NSTimeInterval)timeout;
 
 @end
