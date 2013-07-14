@@ -13,7 +13,7 @@
 @interface FDSerialEngine : NSObject
 
 @property FDUSBDevice *usbDevice;
-@property NSMutableData *writeData;
+@property NSTimeInterval timeout;
 
 - (void)reset;
 - (void)setLatencyTimer:(UInt16)value;

@@ -163,7 +163,11 @@
 
 - (void)initialize
 {
-    [_serialEngine read];
+    @try {
+        [_serialEngine read];
+    } @catch (NSException *e) {
+        FDLog(@"unexpected exception: %@", e);
+    }
     
     [_serialEngine setLoopback:false];
     [_serialEngine setClockDivisor:5];

@@ -17,6 +17,8 @@
 @property NSData *readData;
 @property NSCondition *readCondition;
 
+@property NSMutableData *writeData;
+
 @end
 
 #define REQUEST_RESET 0x00
@@ -32,6 +34,7 @@
 - (id)init
 {
     if (self = [super init]) {
+        _timeout = 0.1;
         _readPipe = 1;
         _writePipe = 2;
         _writeData = [NSMutableData data];
@@ -166,20 +169,23 @@
 
 - (NSData *)read
 {
-    [_readCondition lock];
-    self.readData = nil;
-    _usbDevice.delegate = self;
-    [_usbDevice readPipeAsync:_readPipe length:4096];
-    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:0.1];
-    if (![_readCondition waitUntilDate:deadline]) {
+    NSData *data = nil;
+    if (_timeout) {
+        [_readCondition lock];
+        self.readData = nil;
+        _usbDevice.delegate = self;
+        [_usbDevice readPipeAsync:_readPipe length:4096];
+        NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:_timeout];
+        if (![_readCondition waitUntilDate:deadline]) {
+            [_readCondition unlock];
+            @throw [NSException exceptionWithName:@"USBReadTimeout" reason:@"USB read timeout" userInfo:nil];
+        }
+        data = self.readData;
+        self.readData = nil;
         [_readCondition unlock];
-        @throw [NSException exceptionWithName:@"USBReadTimeout" reason:@"USB read timeout" userInfo:nil];
+    } else {
+        data = [_usbDevice readPipe:_readPipe length:4096];        
     }
-    NSData *data = self.readData;
-    self.readData = nil;
-    [_readCondition unlock];
-
-//    NSData *data = [_usbDevice readPipe:_readPipe length:4096];
     
 //    NSLog(@"read %@", data);
     return [data subdataWithRange:NSMakeRange(2, data.length - 2)];
