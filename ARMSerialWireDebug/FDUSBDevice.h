@@ -10,6 +10,7 @@
 
 #include <IOKit/usb/IOUSBLib.h>
 
+@class FDLogger;
 @class FDUSBDevice;
 
 @protocol FDUSBDeviceDelegate <NSObject>
@@ -23,11 +24,14 @@
 
 @interface FDUSBDevice : NSObject
 
+@property FDLogger *logger;
 @property FDUSBMonitor *usbMonitor;
 @property IOUSBDeviceInterface **deviceInterface;
 @property io_object_t notification;
 
 @property id<FDUSBDeviceDelegate> delegate;
+
+@property NSObject *location;
 
 - (void)open;
 - (void)close;

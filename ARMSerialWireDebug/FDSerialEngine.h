@@ -17,6 +17,7 @@
 
 - (void)reset;
 - (void)setLatencyTimer:(UInt16)value;
+- (void)setResetMode;
 - (void)setMPSEEBitMode;
 
 - (void)setLoopback:(bool)enable;

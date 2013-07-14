@@ -12,6 +12,10 @@
 
 #define BIT(n) (1 << (n))
 
+// Debug Port (DP)
+
+#define SWD_DPID 0x2ba01477
+
 #define SWD_DP_IDCODE 0x00
 #define SWD_DP_ABORT  0x00
 #define SWD_DP_CTRL   0x04
@@ -38,6 +42,26 @@
 #define SWD_DP_STAT_TRNMODE BIT(3) | BIT(2)
 #define SWD_DP_STAT_STICKYORUN BIT(1)
 #define SWD_DP_STAT_ORUNDETECT BIT(0)
+
+// Authentication Access Port (AAP)
+
+#define SWD_AAP_CMD 0x00
+#define SWD_AAP_CMDKEY 0x04
+#define SWD_AAP_STATUS 0x08
+#define SWD_AAP_IDR 0xfc
+
+#define SWD_AAP_CMD_SYSRESETREQ 0x00000002
+#define SWD_AAP_CMD_DEVICEERASE 0x00000001
+
+#define SWD_AAP_CMDKEY_WRITEEN 0xcfacc118
+
+#define SWD_AAP_STATUS_ERASEBUSY 0x00000001
+
+#define SWD_AAP_ID 0x16e60001  // Device is locked
+
+// Advanced High-Performance Bus Access Port (AHB_AP or just AP)
+
+#define SWD_AHB_AP_ID 0x24770011  // Device is unlocked
 
 #define SWD_AP_CSW 0x00
 #define SWD_AP_TAR 0x04
@@ -90,12 +114,13 @@
 @property NSUInteger gpioWriteBit;
 @property NSUInteger gpioResetBit;
 @property NSUInteger gpioIndicatorBit;
+@property NSUInteger gpioDetectBit;
 
 @property NSUInteger ackWaitRetryCount;
 @property NSUInteger debugPortStatusRetryCount;
 @property NSUInteger registerRetryCount;
 
-@property bool overrunDetectionEnabled;
+@property BOOL overrunDetectionEnabled;
 @property UInt32 tarIncrementBits;
 
 @end
@@ -107,7 +132,7 @@
 // ADBUS2  IN TDO
 // ADBUS3 OUT TMS
 // ADBUS4 OUT ?
-// ADBUS5  IN TARGET DETECT
+// ADBUS5  IN TARGET DETECT (target is present if 0)
 // ADBUS6  IN TSRST
 // ADBUS7  IN !RTCK
 // ACBUS0 OUT !TRST
@@ -118,11 +143,14 @@
 - (id)init
 {
     if (self = [super init]) {
+        _logger = [[FDLogger alloc] init];
+        
         _gpioDirections = 0b0000111100011011;
         _gpioOutputs = 0b0000001000000000;
         _gpioWriteBit = 3;
         _gpioResetBit = 9;
         _gpioIndicatorBit = 11;
+        _gpioDetectBit = 5;
         
         _ackWaitRetryCount = 3;
         _debugPortStatusRetryCount = 3;
@@ -135,6 +163,8 @@
 
 - (void)initialize
 {
+    [_serialEngine read];
+    
     [_serialEngine setLoopback:false];
     [_serialEngine setClockDivisor:5];
     [_serialEngine write];
@@ -145,7 +175,10 @@
     
     [_serialEngine setLowByte:_gpioOutputs direction:_gpioDirections];
     [_serialEngine setHighByte:_gpioOutputs >> 8 direction:_gpioDirections >> 8];
+    [_serialEngine sendImmediate];
     [_serialEngine write];
+    
+    [self getGpios];
 }
 
 - (void)getGpios
@@ -157,10 +190,15 @@
     NSData *data = [_serialEngine read:2];
     UInt8 *bytes = (UInt8 *)data.bytes;
     _gpioInputs = (bytes[1] << 8) | bytes[0];
-//    NSLog(@"gpios %04x", _gpioInputs);
 }
 
-- (void)setGpioBit:(NSUInteger)bit value:(bool)value
+- (BOOL)getGpioDetect
+{
+    [self getGpios];
+    return _gpioInputs & (1 << _gpioDetectBit) ? NO : YES;
+}
+
+- (void)setGpioBit:(NSUInteger)bit value:(BOOL)value
 {
     UInt16 mask = 1 << bit;
     UInt16 outputs = _gpioOutputs;
@@ -180,12 +218,12 @@
     }
 }
 
-- (void)setGpioIndicator:(bool)value
+- (void)setGpioIndicator:(BOOL)value
 {
     [self setGpioBit:_gpioIndicatorBit value:value];
 }
 
-- (void)setGpioReset:(bool)value
+- (void)setGpioReset:(BOOL)value
 {
     [self setGpioBit:_gpioResetBit value:value];
 }
@@ -217,7 +255,7 @@
     [self skip:1];
 }
 
-- (void)resetDebugAccessPort
+- (void)resetDebugPort
 {
     [self turnToWrite];
     UInt8 bytes[] = {
@@ -314,7 +352,7 @@ typedef enum {
     NSData *data = [_serialEngine read:5];
     UInt8 *bytes = (UInt8 *)data.bytes;
     UInt32 value = (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
-    bool parity = bytes[4] >> 7;
+    BOOL parity = bytes[4] >> 7;
     if (parity != [self getParityUInt32:value]) {
         @throw [NSException exceptionWithName:@"read error" reason:@"parity mismatch" userInfo:nil];
     }
@@ -445,7 +483,7 @@ typedef enum {
 
 - (void)recoverFromDebugPortError
 {
-    [self resetDebugAccessPort];
+    [self resetDebugPort];
     UInt32 debugPortIDCode = [self readDebugPortIDCode];
     NSLog(@"DPID = %08x", debugPortIDCode);
     [self checkDebugPortStatus];
@@ -516,7 +554,7 @@ typedef enum {
 //    NSLog(@"write memory %08x = %08x done", address, value);
 }
 
-- (void)setOverrunDetection:(bool)enabled
+- (void)setOverrunDetection:(BOOL)enabled
 {
     [self writeDebugPort:SWD_DP_ABORT value:
      SWD_DP_ABORT_ORUNERRCLR |
@@ -621,8 +659,8 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     for (NSUInteger i = 0; i < words; ++i) {
         UInt8 *bytes = &outputBytes[i * 5];
         UInt32 value = (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
-        bool parity = bytes[4] >> 7;
-        bool actual = [self getParityUInt32:value];
+        BOOL parity = bytes[4] >> 7;
+        BOOL actual = [self getParityUInt32:value];
         if (parity != actual) {
             @throw [NSException exceptionWithName:@"read error"
                                            reason:@"parity mismatch"
@@ -844,12 +882,12 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     return numCode;
 }
 
-- (void)enableBreakpoints:(bool)enable
+- (void)enableBreakpoints:(BOOL)enable
 {
     [self writeMemory:FP_CTRL value:FP_CTRL_KEY | (enable ? FP_CTRL_ENABLE : 0)];
 }
 
-- (bool)getBreakpoint:(uint32_t)n address:(uint32_t *)address
+- (BOOL)getBreakpoint:(uint32_t)n address:(uint32_t *)address
 {
     uint32_t value = [self readMemory:FP_COMP0 + n * 4];
     if (value & FP_COMP_ENABLE) {
@@ -868,6 +906,14 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 - (void)disableBreakpoint:(uint32_t)n
 {
     [self writeMemory:FP_COMP0 + n * 4 value:0];
+}
+
+- (void)disableAllBreakpoints
+{
+    uint32_t count = [self breakpointCount];
+    for (uint32_t i = 0; i < count; ++i) {
+        [self disableBreakpoint:i];
+    }
 }
 
 #define SCB 0xE000ED00
@@ -920,7 +966,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
         [NSThread sleepForTimeInterval:0.0001];
         now = [NSDate date];
     } while ([now timeIntervalSinceDate:start] < timeout);
-    [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];
+    @throw [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];
 }
 
 - (void)waitForRegisterReady
@@ -953,7 +999,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 //    NSLog(@"write register %04x = %08x done", registerID, value);
 }
 
-- (void)initializeDebugAccessPort
+- (void)initializeDebugPort
 {
     [self readDebugPort:SWD_DP_STAT];
     
@@ -971,6 +1017,57 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self waitForDebugPortStatus:SWD_DP_CTRL_CDBGPWRUPACK];
     
     [self writeDebugPort:SWD_DP_SELECT value:0];
+
+    [self readDebugPort:SWD_DP_STAT];
+}
+
+- (uint32_t)readAccessPortID
+{
+    return [self readAccessPort:SWD_AAP_IDR];
+}
+
+- (BOOL)isAuthenticationAccessPortActive {
+    uint32_t dpid = [self readDebugPort:0];
+    if (dpid != SWD_DPID) {
+        @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:@"DPID not recognized" userInfo:nil];
+    }
+    
+    uint32_t apid = [self readAccessPortID];
+    if (apid == SWD_AHB_AP_ID) {
+        return NO;
+    }
+    return YES;
+    /*
+    if (apid == SWD_AAP_ID) {
+        return YES;
+    }
+    @throw [NSException exceptionWithName:@"APID_NOT_RECOGNIZED" reason:@"APID not recognized" userInfo:nil];
+     */
+}
+
+#define SWD_AAP_ERASE_TIMEOUT 0.200 // erase takes 125 ms
+
+- (void)authenticationAccessPortErase
+{
+    [self writeAccessPort:SWD_AAP_CMDKEY value:SWD_AAP_CMDKEY_WRITEEN];
+    [self writeAccessPort:SWD_AAP_CMD value:SWD_AAP_CMD_DEVICEERASE];
+    NSDate *start = [NSDate date];
+    do {
+        [NSThread sleepForTimeInterval:0.025];
+        uint32_t status = [self readAccessPort:SWD_AAP_STATUS];
+        if ((status & SWD_AAP_STATUS_ERASEBUSY) == 0) {
+            break;
+        }
+    } while ([[NSDate date] timeIntervalSinceDate:start] < SWD_AAP_ERASE_TIMEOUT);
+}
+
+- (void)authenticationAccessPortReset
+{
+    [self writeAccessPort:SWD_AAP_CMD value:SWD_AAP_CMD_SYSRESETREQ];
+}
+
+- (void)initializeAccessPort
+{
     [self writeAccessPort:SWD_AP_CSW value:
      SWD_AP_CSW_DBGSWENABLE |
      SWD_AP_CSW_MASTER_DEBUG |

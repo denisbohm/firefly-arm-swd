@@ -8,22 +8,32 @@
 
 #import <Foundation/Foundation.h>
 
+@class FDLogger;
 @class FDSerialEngine;
 
 @interface FDSerialWireDebug : NSObject
 
 @property FDSerialEngine *serialEngine;
+@property FDLogger *logger;
 
 - (void)initialize;
 
-- (void)getGpios;
+- (BOOL)getGpioDetect;
 
-- (void)setGpioIndicator:(bool)value;
-- (void)setGpioReset:(bool)value;
+- (void)setGpioIndicator:(BOOL)value;
+- (void)setGpioReset:(BOOL)value;
 
-- (void)resetDebugAccessPort;
+- (void)resetDebugPort;
 - (UInt32)readDebugPortIDCode;
-- (void)initializeDebugAccessPort;
+- (void)initializeDebugPort;
+
+- (BOOL)isAuthenticationAccessPortActive;
+- (void)authenticationAccessPortErase;
+- (void)authenticationAccessPortReset;
+
+- (uint32_t)readAccessPortID;
+- (void)initializeAccessPort;
+
 - (UInt32)readCPUID;
 
 - (void)checkDebugPortStatus;
@@ -51,9 +61,10 @@
 - (void)waitForHalt:(NSTimeInterval)timeout;
 
 - (uint32_t)breakpointCount;
-- (void)enableBreakpoints:(bool)enable;
-- (bool)getBreakpoint:(uint32_t)n address:(uint32_t *)address;
+- (void)enableBreakpoints:(BOOL)enable;
+- (BOOL)getBreakpoint:(uint32_t)n address:(uint32_t *)address;
 - (void)setBreakpoint:(uint32_t)n address:(uint32_t)address;
 - (void)disableBreakpoint:(uint32_t)n;
+- (void)disableAllBreakpoints;
 
 @end

@@ -17,12 +17,20 @@
 @property IOUSBInterfaceInterface **interface;
 @property NSData *writeData;
 @property NSMutableData *readData;
-@property UInt32 location;
+@property UInt32 locationID;
 @property NSString *typeAndLocation;
 
 @end
 
 @implementation FDUSBDevice
+
+- (id)init
+{
+    if (self = [super init]) {
+        _logger = [[FDLogger alloc] init];
+    }
+    return self;
+}
 
 - (NSString *)description
 {
@@ -102,11 +110,12 @@
            break;
         }
         
-        kernReturn = (*interface)->GetLocationID(interface, &_location);
+        kernReturn = (*interface)->GetLocationID(interface, &_locationID);
         if (kernReturn != KERN_SUCCESS) {
             NSLog(@"GetLocationID failed (%08x)", kernReturn);
         }
-        _typeAndLocation = [NSString stringWithFormat:@"Olimex ARM-USB-TINY-H %u", _location];
+        _location = [NSNumber numberWithInt:_locationID];
+        _typeAndLocation = [NSString stringWithFormat:@"Olimex ARM-USB-TINY-H %u", _locationID];
 
         // use the first interface -denis
         _interface = interface;
@@ -146,8 +155,16 @@
     self.deviceInterface = NULL;
 }
 
+- (void)checkIfOpen
+{
+    if (_interface == nil) {
+        @throw [NSException exceptionWithName:@"USBDeviceClosed" reason:@"USB device closed" userInfo:nil];
+    }
+}
+
 - (void)request:(UInt8)request value:(UInt16)value
 {
+    [self checkIfOpen];
     IOUSBDevRequest devRequest;
     bzero(&devRequest, sizeof(devRequest));
     devRequest.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice);
@@ -162,14 +179,17 @@
 
 - (void)writePipe:(UInt8)pipe data:(NSData *)data
 {
+    [self checkIfOpen];
     kern_return_t kernReturn = (*_interface)->WritePipe(_interface, pipe, (void *)data.bytes, (UInt32)data.length);
     if (kernReturn != kIOReturnSuccess) {
         FDLog(@"failure WritePipe: %08x", kernReturn);
+        @throw [NSException exceptionWithName:@"USBWriteFailure" reason:@"USB write failure" userInfo:nil];
     }
 }
 
 - (void)WritePipeAsyncCallback:(IOReturn)result arg0:(void *)arg0
 {
+    [self checkIfOpen];
     NSError *error = nil;
     if (result != kIOReturnSuccess) {
         FDLog(@"failure WritePipeAsync: %08x", result);
@@ -193,6 +213,7 @@ void WritePipeAsyncCallback(void *refCon, IOReturn result, void *arg0)
 
 - (void)writePipeAsync:(UInt8)pipe data:(NSData *)data
 {
+    [self checkIfOpen];
     _writeData = [NSData dataWithData:data];
     kern_return_t kernReturn = (*_interface)->WritePipeAsync(_interface, pipe, (void *)_writeData.bytes, (UInt32)_writeData.length, WritePipeAsyncCallback, (__bridge void *)self);
     if (kernReturn != kIOReturnSuccess) {
@@ -203,11 +224,13 @@ void WritePipeAsyncCallback(void *refCon, IOReturn result, void *arg0)
 
 - (NSData *)readPipe:(UInt8)pipe length:(UInt32)length
 {
+    [self checkIfOpen];
     NSMutableData *data = [NSMutableData dataWithLength:length];
     UInt32 readLength = length;
     kern_return_t kernReturn = (*_interface)->ReadPipe(_interface, pipe, (void *)data.bytes, &readLength);
     if (kernReturn != kIOReturnSuccess) {
         FDLog(@"failure ReadPipe: %08x", kernReturn);
+        @throw [NSException exceptionWithName:@"USBReadFailure" reason:@"USB read failure" userInfo:nil];
     }
     [data setLength:readLength];
     return data;
@@ -215,6 +238,7 @@ void WritePipeAsyncCallback(void *refCon, IOReturn result, void *arg0)
 
 - (void)ReadPipeAsyncCallback:(IOReturn)result arg0:(void *)arg0
 {
+    [self checkIfOpen];
     NSError *error = nil;
     if (result != kIOReturnSuccess) {
         FDLog(@"failure ReadPipeAsync: %08x", result);
@@ -240,6 +264,7 @@ void ReadPipeAsyncCallback(void *refCon, IOReturn result, void *arg0)
 
 - (void)readPipeAsync:(UInt8)pipe length:(UInt32)length
 {
+    [self checkIfOpen];
     if (_readData != nil) {
         NSLog(@"readPipeAsync called while previous is still pending");
         return;

@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 
 @class FDUSBDevice;
+@class FDLogger;
 @class FDUSBMonitor;
 
 @protocol FDUSBMonitorDelegate <NSObject>
@@ -24,6 +25,7 @@
 @property UInt16 product;
 
 @property id<FDUSBMonitorDelegate> delegate;
+@property FDLogger *logger;
 
 - (void)start;
 

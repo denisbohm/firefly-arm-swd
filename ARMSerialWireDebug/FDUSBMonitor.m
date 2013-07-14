@@ -27,6 +27,7 @@
 - (id)init
 {
     if (self = [super init]) {
+        _logger = [[FDLogger alloc] init];
         _usbDevices = [NSMutableArray array];
     }
     return self;

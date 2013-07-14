@@ -32,23 +32,27 @@
 #define CORTEX_M_REGISTER_MSP  17
 #define CORTEX_M_REGISTER_PSP  18
 
-typedef struct {
-    UInt32 location;
-    UInt32 length;
-} FDAddressRange;
+@interface FDAddressRange : NSObject
+@property UInt32 location;
+@property UInt32 length;
+@end
 
+@class FDLogger;
 @class FDSerialWireDebug;
 
 @interface FDCortexM : NSObject
 
 @property FDSerialWireDebug *serialWireDebug;
+@property FDLogger *logger;
 
-@property FDAddressRange programRange;
-@property FDAddressRange stackRange;
-@property FDAddressRange heapRange;
+@property FDAddressRange *programRange;
+@property FDAddressRange *stackRange;
+@property FDAddressRange *heapRange;
+@property uint32_t breakLocation;
 
 - (void)identify;
 
-- (void)run:(UInt32)pc timeout:(NSTimeInterval)timeout;
+- (uint32_t)run:(UInt32)pc timeout:(NSTimeInterval)timeout;
+- (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 timeout:(NSTimeInterval)timeout;
 
 @end

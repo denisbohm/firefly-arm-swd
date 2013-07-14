@@ -9,10 +9,13 @@
 #import "FDSerialEngine.h"
 #import "FDUSBDevice.h"
 
-@interface FDSerialEngine ()
+@interface FDSerialEngine () <FDUSBDeviceDelegate>
 
 @property UInt8 readPipe;
 @property UInt8 writePipe;
+
+@property NSData *readData;
+@property NSCondition *readCondition;
 
 @end
 
@@ -32,6 +35,7 @@
         _readPipe = 1;
         _writePipe = 2;
         _writeData = [NSMutableData data];
+        _readCondition = [[NSCondition alloc] init];
     }
     return self;
 }
@@ -44,6 +48,11 @@
 - (void)setLatencyTimer:(UInt16)value
 {
     [_usbDevice request:REQUEST_SET_LATENCY_TIMER value:value];
+}
+
+- (void)setResetMode
+{
+    [_usbDevice request:REQUEST_SET_BITMODE value:0x000b];
 }
 
 - (void)setMPSEEBitMode
@@ -132,19 +141,46 @@
     [_writeData appendBytes:bytes length:sizeof(bytes)];
 }
 
+- (void)usbDevice:(FDUSBDevice *)usbDevice writePipeAsync:(NSData *)data error:(NSError *)error
+{
+}
+
 - (void)write
 {
     if (_writeData.length == 0) {
         return;
     }
 //    NSLog(@"write %@", _writeData);
-    [_usbDevice writePipeAsync:_writePipe data:_writeData];
-    [_writeData setLength:0];
+    [_usbDevice writePipe:_writePipe data:_writeData];
+    _writeData = nil;
+    _writeData = [NSMutableData data];
+}
+
+- (void)usbDevice:(FDUSBDevice *)usbDevice readPipeAsync:(NSData *)data error:(NSError *)error
+{
+    [_readCondition lock];
+    self.readData = data;
+    [_readCondition broadcast];
+    [_readCondition unlock];
 }
 
 - (NSData *)read
 {
-    NSData *data = [_usbDevice readPipe:_readPipe length:4096];
+    [_readCondition lock];
+    self.readData = nil;
+    _usbDevice.delegate = self;
+    [_usbDevice readPipeAsync:_readPipe length:4096];
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:0.1];
+    if (![_readCondition waitUntilDate:deadline]) {
+        [_readCondition unlock];
+        @throw [NSException exceptionWithName:@"USBReadTimeout" reason:@"USB read timeout" userInfo:nil];
+    }
+    NSData *data = self.readData;
+    self.readData = nil;
+    [_readCondition unlock];
+
+//    NSData *data = [_usbDevice readPipe:_readPipe length:4096];
+    
 //    NSLog(@"read %@", data);
     return [data subdataWithRange:NSMakeRange(2, data.length - 2)];
 }

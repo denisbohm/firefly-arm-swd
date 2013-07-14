@@ -16,10 +16,10 @@
 
 @interface FDLogger : NSObject
 
-+ (void)logFile:(char *)file line:(NSUInteger)line class:(NSString *)class method:(NSString *)method format:(NSString *)format, ...;
+@property id<FDLoggerConsumer> consumer;
 
-+ (void)setConsumer:(id<FDLoggerConsumer>)consumer;
+- (void)logFile:(char *)file line:(NSUInteger)line class:(NSString *)class method:(NSString *)method format:(NSString *)format, ...;
 
 @end
 
-#define FDLog(f, ...) [FDLogger logFile:__FILE__ line:__LINE__ class:[self className] method:NSStringFromSelector(_cmd) format:f, ##__VA_ARGS__]
+#define FDLog(f, ...) [self.logger logFile:__FILE__ line:__LINE__ class:[self className] method:NSStringFromSelector(_cmd) format:f, ##__VA_ARGS__]

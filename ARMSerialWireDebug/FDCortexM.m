@@ -10,15 +10,29 @@
 #import "FDLogger.h"
 #import "FDSerialWireDebug.h"
 
+@implementation FDAddressRange
+@end
+
 @interface FDCortexM ()
 
 @end
 
 @implementation FDCortexM
 
+- (id)init
+{
+    if (self = [super init]) {
+        _logger = [[FDLogger alloc] init];
+        _programRange = [[FDAddressRange alloc] init];
+        _stackRange = [[FDAddressRange alloc] init];
+        _heapRange = [[FDAddressRange alloc] init];
+    }
+    return self;
+}
+
 - (void)identify
 {
-    [_serialWireDebug resetDebugAccessPort];
+    [_serialWireDebug resetDebugPort];
     uint32_t debugPortIDCode = [_serialWireDebug readDebugPortIDCode];
     FDLog(@"TAP ID %08x", debugPortIDCode);
     unsigned version = (debugPortIDCode >> 28) & 0xf;
@@ -58,7 +72,17 @@
     unsigned deviceNumber = partNumber & 0xff;
     FDLog(@"TAP ID: %@ processor core, family ARM%u, device number %u", processorCore ? @"non-ARM" : @"ARM", family, deviceNumber);
     
-    [_serialWireDebug initializeDebugAccessPort];
+    [_serialWireDebug initializeDebugPort];
+    
+    if ([_serialWireDebug isAuthenticationAccessPortActive]) {
+        FDLog(@"Authentication AP is active - erasing device to gain access.");
+        [_serialWireDebug authenticationAccessPortErase];
+        [_serialWireDebug authenticationAccessPortReset];
+        [NSThread sleepForTimeInterval:0.1];
+    }
+    
+    [_serialWireDebug initializeAccessPort];
+    
     uint32_t cpuID = [_serialWireDebug readCPUID];
     FDLog(@"CPU ID = %08x", cpuID);
     unsigned implementer = (cpuID >> 24) & 0xff;
@@ -92,13 +116,27 @@
     }
 }
 
-- (void)run:(UInt32)pc timeout:(NSTimeInterval)timeout
+- (uint32_t)run:(UInt32)pc timeout:(NSTimeInterval)timeout
 {
-    [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R0 value:_heapRange.location];
+    return [self run:pc r0:0 timeout:timeout];
+}
+
+- (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 timeout:(NSTimeInterval)timeout
+{
+    [_serialWireDebug halt];
+    /*
+    // can only use hardware breakpoints if code is in FLASH -denis
+    [_serialWireDebug disableAllBreakpoints];
+    [_serialWireDebug setBreakpoint:0 address:_breakLocation];
+    [_serialWireDebug enableBreakpoints:YES];
+     */
+    [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R0 value:r0];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_SP value:_stackRange.location + _stackRange.length];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_PC value:pc];
+    [_serialWireDebug writeRegister:CORTEX_M_REGISTER_LR value:_breakLocation | 0x00000001];
     [_serialWireDebug run];
     [_serialWireDebug waitForHalt:timeout];
+    return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
 }
 
 @end
