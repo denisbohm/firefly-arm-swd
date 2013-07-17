@@ -123,6 +123,11 @@
 
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 timeout:(NSTimeInterval)timeout
 {
+    return [self run:pc r0:r0 r1:0 timeout:timeout];
+}
+
+- (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 timeout:(NSTimeInterval)timeout
+{
     [_serialWireDebug halt];
     /*
     // can only use hardware breakpoints if code is in FLASH -denis
@@ -131,6 +136,7 @@
     [_serialWireDebug enableBreakpoints:YES];
      */
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R0 value:r0];
+    [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R1 value:r1];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_SP value:_stackRange.location + _stackRange.length];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_PC value:pc];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_LR value:_breakLocation | 0x00000001];

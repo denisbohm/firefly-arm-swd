@@ -780,6 +780,15 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }
 }
 
+- (void)erase:(UInt32)address
+{
+    [self recoverAndRetry:^(void) {
+        [self loadAddress:address];
+        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEPAGE];
+        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+    }];
+}
+
 - (void)massErase
 {
     [self recoverAndRetry:^(void) {
@@ -790,13 +799,51 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }];
 }
 
-- (void)erase:(UInt32)address
+// Device Information Page Values
+#define MEM_INFO_PAGE_SIZE 0x0FE081E7
+#define UNIQUE_0 0x0FE081F0
+#define UNIQUE_1 0x0FE081F4
+#define MEM_INFO_RAM 0x0FE081FA
+#define MEM_INFO_FLASH 0x0FE081F8
+#define PART_NUMBER 0x0FE081FC
+#define PART_FAMILY 0x0FE081FE
+#define PROD_REV 0x0FE081FF
+
+#define Gecko 71
+#define Giant_Gecko 72
+#define Tiny_Gecko 73
+#define Leopard_Gecko 74
+
+- (UInt8)readMemoryUInt8:(UInt32)address
 {
-    [self recoverAndRetry:^(void) {
-        [self loadAddress:address];
-        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_ERASEPAGE];
-        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
-    }];
+    UInt32 word = [self readMemory:address];
+    return (word >> ((address & 0x3) * 8)) & 0xff;
+}
+
+- (UInt8)readMemoryUInt16:(UInt32)address
+{
+    UInt32 word = [self readMemory:address];
+    return (word >> ((address & 0x3) * 8)) & 0xffff;
+}
+
+- (void)eraseAll
+{
+    UInt32 family = [self readMemoryUInt8:PART_FAMILY];
+    switch (family) {
+        case Gecko: {
+            UInt32 size = [self readMemoryUInt16:MEM_INFO_FLASH]; // in KB
+            UInt32 pages = size * 2; // page is 512 bytes
+            for (UInt32 page = 0; page < pages; ++page) {
+                UInt32 address = page * 512;
+                [self erase:address];
+            }
+        } break;
+        case Leopard_Gecko: {
+            [self massErase];
+        } break;
+        default:
+            @throw [NSException exceptionWithName:@"UnknownFamily" reason:@"unknown family" userInfo:nil];
+    }
 }
 
 - (void)programTransfer:(UInt32)address data:(NSData *)data

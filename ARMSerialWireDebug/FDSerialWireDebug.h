@@ -45,6 +45,7 @@
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length;
 
 - (void)massErase;
+- (void)eraseAll;
 - (void)erase:(UInt32)address;
 - (void)program:(UInt32)address data:(NSData *)data;
 
