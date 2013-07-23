@@ -44,8 +44,10 @@
 - (void)writeMemory:(UInt32)address data:(NSData *)data;
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length;
 
+- (UInt8)readMemoryUInt8:(UInt32)address;
+- (UInt16)readMemoryUInt16:(UInt32)address;
+
 - (void)massErase;
-- (void)eraseAll;
 - (void)erase:(UInt32)address;
 - (void)program:(UInt32)address data:(NSData *)data;
 

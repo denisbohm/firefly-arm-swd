@@ -119,6 +119,7 @@
 @property NSUInteger ackWaitRetryCount;
 @property NSUInteger debugPortStatusRetryCount;
 @property NSUInteger registerRetryCount;
+@property NSUInteger recoveryRetryCount;
 
 @property BOOL overrunDetectionEnabled;
 @property UInt32 tarIncrementBits;
@@ -155,6 +156,7 @@
         _ackWaitRetryCount = 3;
         _debugPortStatusRetryCount = 3;
         _registerRetryCount = 3;
+        _recoveryRetryCount = 5;
         
         _tarIncrementBits = 0x3ff;
     }
@@ -418,7 +420,7 @@ typedef enum {
             return;
         }
         if (ack != SWDWaitAck) {
-            @throw [NSException exceptionWithName:@"write port error" reason:@"unexpected ack" userInfo:nil];
+            @throw [NSException exceptionWithName:@"write port error" reason:[NSString stringWithFormat:@"unexpected ack %u writing to port %u, register offset %d, value 0x%08x", ack, port, registerOffset, value] userInfo:nil];
         }
     }
     @throw [NSException exceptionWithName:@"write port error" reason:@"too many retries" userInfo:nil];
@@ -483,6 +485,15 @@ typedef enum {
     if (recoveryStatus & (SWD_DP_STAT_WDATAERR | SWD_DP_STAT_STICKYERR | SWD_DP_STAT_STICKYORUN)) {
         FDLog(@"debug port status recovery failed: %@", [self getDebugPortStatusMessage:recoveryStatus]);
     }
+    
+    [self writeDebugPort:SWD_DP_SELECT value:0];
+    
+    [self writeAccessPort:SWD_AP_CSW value:
+     SWD_AP_CSW_DBGSWENABLE |
+     SWD_AP_CSW_MASTER_DEBUG |
+     SWD_AP_CSW_HPROT |
+     SWD_AP_CSW_INCREMENT_SINGLE |
+     SWD_AP_CSW_32BIT];
 }
 
 - (void)recoverFromDebugPortError
@@ -524,14 +535,15 @@ typedef enum {
 
 - (void)recoverAndRetry:(void (^)(void))block
 {
-    for (NSUInteger i = 0; i < 3; ++i) {
+    for (NSUInteger i = 0; i < _recoveryRetryCount; ++i) {
         @try {
             block();
             break;
         } @catch (NSException *e) {
-            if (i == 2) {
+            if (i == (_recoveryRetryCount - 1)) {
                 @throw;
             }
+            FDLog(@"unexpected exception (attempting recovery): %@", e);
             [self recoverFromDebugPortError];
         }
     }
@@ -724,6 +736,18 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     return [data subdataWithRange:NSMakeRange(address - readAddress, length)];
 }
 
+- (UInt8)readMemoryUInt8:(UInt32)address
+{
+    UInt32 word = [self readMemory:address & ~0x3];
+    return (word >> ((address & 0x3) * 8)) & 0xff;
+}
+
+- (UInt16)readMemoryUInt16:(UInt32)address
+{
+    UInt32 word = [self readMemory:address & ~0x3];
+    return (word >> ((address & 0x2) * 8)) & 0xffff;
+}
+
 #define MSC 0x400c0000
 
 #define MSC_WRITECTRL (MSC + 0x008)
@@ -799,53 +823,6 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }];
 }
 
-// Device Information Page Values
-#define MEM_INFO_PAGE_SIZE 0x0FE081E7
-#define UNIQUE_0 0x0FE081F0
-#define UNIQUE_1 0x0FE081F4
-#define MEM_INFO_RAM 0x0FE081FA
-#define MEM_INFO_FLASH 0x0FE081F8
-#define PART_NUMBER 0x0FE081FC
-#define PART_FAMILY 0x0FE081FE
-#define PROD_REV 0x0FE081FF
-
-#define Gecko 71
-#define Giant_Gecko 72
-#define Tiny_Gecko 73
-#define Leopard_Gecko 74
-
-- (UInt8)readMemoryUInt8:(UInt32)address
-{
-    UInt32 word = [self readMemory:address];
-    return (word >> ((address & 0x3) * 8)) & 0xff;
-}
-
-- (UInt8)readMemoryUInt16:(UInt32)address
-{
-    UInt32 word = [self readMemory:address];
-    return (word >> ((address & 0x3) * 8)) & 0xffff;
-}
-
-- (void)eraseAll
-{
-    UInt32 family = [self readMemoryUInt8:PART_FAMILY];
-    switch (family) {
-        case Gecko: {
-            UInt32 size = [self readMemoryUInt16:MEM_INFO_FLASH]; // in KB
-            UInt32 pages = size * 2; // page is 512 bytes
-            for (UInt32 page = 0; page < pages; ++page) {
-                UInt32 address = page * 512;
-                [self erase:address];
-            }
-        } break;
-        case Leopard_Gecko: {
-            [self massErase];
-        } break;
-        default:
-            @throw [NSException exceptionWithName:@"UnknownFamily" reason:@"unknown family" userInfo:nil];
-    }
-}
-
 - (void)programTransfer:(UInt32)address data:(NSData *)data
 {
     if ((address & 0x3) != 0) {
@@ -860,32 +837,37 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
                                      userInfo:nil];
     }
 
-    [self loadAddress:address];
-    [self accessPortBankSelect:0x00];
+    BOOL fast = NO;
+    if (fast) {
+        [self accessPortBankSelect:0x00];
+        [self setOverrunDetection:true];
+    }
     
-    [self setOverrunDetection:true];
     UInt8 apTarRequest = [self encodeRequestPort:SWDAccessPort direction:SWDWriteDirection address:SWD_AP_TAR];
     UInt8 apDrwRequest = [self encodeRequestPort:SWDAccessPort direction:SWDWriteDirection address:SWD_AP_DRW];
     UInt8 *bytes = (UInt8 *)data.bytes;
     for (NSUInteger i = 0; i < length; i += 4) {
         UInt32 value = unpackLittleEndianUInt32(&bytes[i]);
-
-// !!! This is the "correct" procedure.  However, it is slow.
+        if (fast) {
 // We don't need the two way status waits, because going over USB via FTDI, etc
 // is slower than the operations take. -denis
-//        [self memorySystemControllerStatusWait:MSC_STATUS_WDATAREADY value:0];
-//        [self writeMemory:MSC_WDATA value:value];
-//        [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_WRITEONCE];
-//        [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
-
-        [self requestWriteSkip:apTarRequest value:MSC_WDATA];
-        [self requestWriteSkip:apDrwRequest value:value];
-        [self requestWriteSkip:apTarRequest value:MSC_WRITECMD];
-        [self requestWriteSkip:apDrwRequest value:MSC_WRITECMD_WRITEONCE];
+            [self memorySystemControllerStatusWait:MSC_STATUS_WDATAREADY value:0];
+            [self writeMemory:MSC_WDATA value:value];
+            [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_WRITETRIG];
+            [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
+        } else {
+            [self loadAddress:(uint32_t)(address + i)];
+            [self requestWriteSkip:apTarRequest value:MSC_WDATA];
+            [self requestWriteSkip:apDrwRequest value:value];
+            [self requestWriteSkip:apTarRequest value:MSC_WRITECMD];
+            [self requestWriteSkip:apDrwRequest value:MSC_WRITECMD_WRITEONCE];
+        }
     }
-    [self flush];
     
-    [self afterMemoryTransfer];
+    if (fast) {
+        [self flush];
+        [self afterMemoryTransfer];
+    }
 }
 
 - (void)program:(UInt32)address data:(NSData *)data
@@ -1014,7 +996,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
             return;
         }
         
-        [NSThread sleepForTimeInterval:0.0001];
+        [NSThread sleepForTimeInterval:0.001];
         now = [NSDate date];
     } while ([now timeIntervalSinceDate:start] < timeout);
     @throw [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];
