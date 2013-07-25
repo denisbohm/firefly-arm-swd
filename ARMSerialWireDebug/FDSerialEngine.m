@@ -34,7 +34,7 @@
 - (id)init
 {
     if (self = [super init]) {
-        _timeout = 0.1;
+        _timeout = 0.5;
         _readPipe = 1;
         _writePipe = 2;
         _writeData = [NSMutableData data];

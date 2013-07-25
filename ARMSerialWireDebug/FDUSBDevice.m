@@ -99,7 +99,7 @@
         UInt8 interfaceSubClass;
         kernReturn = (*interface)->GetInterfaceSubClass(interface, &interfaceSubClass);
 
-        NSLog(@"Interface class %d, subclass %d", interfaceClass, interfaceSubClass);
+        // NSLog(@"Interface class %d, subclass %d", interfaceClass, interfaceSubClass);
 
         //Now open the interface. This will cause the pipes associated with
         //the endpoints in the interface descriptor to be instantiated
@@ -129,7 +129,7 @@
             (void) (*interface)->Release(interface);
             break;
         }
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopDefaultMode);
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes); // kCFRunLoopDefaultMode);
         
         break;
     }

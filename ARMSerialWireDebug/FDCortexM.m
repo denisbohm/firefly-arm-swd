@@ -130,12 +130,12 @@
 
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 timeout:(NSTimeInterval)timeout
 {
-    return [self run:pc r0:r0 r1:0 r2:0 r3:0 timeout:timeout];
+    return [self run:pc r0:r0 r1:r1 r2:0 r3:0 timeout:timeout];
 }
 
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 timeout:(NSTimeInterval)timeout
 {
-    return [self run:pc r0:r0 r1:0 r2:0 r3:0 timeout:timeout];
+    return [self run:pc r0:r0 r1:r1 r2:r2 r3:0 timeout:timeout];
 }
 
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3 timeout:(NSTimeInterval)timeout

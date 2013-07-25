@@ -151,7 +151,7 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
     
     CFRunLoopSourceRef runLoopSourceRef = IONotificationPortGetRunLoopSource(_notificationPort);
     CFRunLoopRef runLoopRef = CFRunLoopGetCurrent();
-    CFRunLoopAddSource(runLoopRef, runLoopSourceRef, kCFRunLoopDefaultMode);
+    CFRunLoopAddSource(runLoopRef, runLoopSourceRef, kCFRunLoopCommonModes); // kCFRunLoopDefaultMode);
     
     CFDictionaryRef matchingDictionary = IOServiceMatching(kIOUSBDeviceClassName);
     io_iterator_t gRawAddedIter;
