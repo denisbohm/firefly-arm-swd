@@ -43,4 +43,12 @@
 
 #define EFM32_WDOG_CMD_CLEAR 0x00000001
 
+// User Data Page
+#define EFM32_UD 0x0FE00000
+// Lock Bits
+#define EFM32_LB 0x0FE04000
+#define EFM32_LB_DLW (EFM32_LB + 127 * 4)
+#define EFM32_LB_ULW (EFM32_LB + 126 * 4)
+#define EFM32_LB_PLW(n) (EFM32_LB + (n) * 4)
+
 #endif

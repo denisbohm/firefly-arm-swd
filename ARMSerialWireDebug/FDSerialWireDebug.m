@@ -823,7 +823,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }];
 }
 
-- (void)programTransfer:(UInt32)address data:(NSData *)data
+- (void)flashTransfer:(UInt32)address data:(NSData *)data
 {
     if ((address & 0x3) != 0) {
         @throw [NSException exceptionWithName:@"invalid address"
@@ -851,16 +851,16 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
         if (fast) {
 // We don't need the two way status waits, because going over USB via FTDI, etc
 // is slower than the operations take. -denis
-            [self memorySystemControllerStatusWait:MSC_STATUS_WDATAREADY value:0];
-            [self writeMemory:MSC_WDATA value:value];
-            [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_WRITETRIG];
-            [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
-        } else {
-            [self loadAddress:(uint32_t)(address + i)];
             [self requestWriteSkip:apTarRequest value:MSC_WDATA];
             [self requestWriteSkip:apDrwRequest value:value];
             [self requestWriteSkip:apTarRequest value:MSC_WRITECMD];
-            [self requestWriteSkip:apDrwRequest value:MSC_WRITECMD_WRITEONCE];
+            [self requestWriteSkip:apDrwRequest value:MSC_WRITECMD_WRITETRIG];
+        } else {
+            [self loadAddress:(uint32_t)(address + i)];
+            [self memorySystemControllerStatusWait:MSC_STATUS_WDATAREADY value:0];
+            [self writeMemory:MSC_WDATA value:value];
+            [self writeMemory:MSC_WRITECMD value:MSC_WRITECMD_WRITEONCE];
+            [self memorySystemControllerStatusWait:MSC_STATUS_BUSY value:MSC_STATUS_BUSY];
         }
     }
     
@@ -870,10 +870,10 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     }
 }
 
-- (void)program:(UInt32)address data:(NSData *)data
+- (void)flash:(UInt32)address data:(NSData *)data
 {
     [self paginate:0x7ff address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
-        [self programTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
+        [self flashTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
     }];
 }
 

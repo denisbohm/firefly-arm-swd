@@ -50,6 +50,9 @@
 @property FDAddressRange *heapRange;
 @property uint32_t breakLocation;
 
++ (NSString *)debugPortIDCodeDescription:(uint32_t)debugPortIDCode;
++ (NSString *)cpuIDDescription:(uint32_t)cpuID;
+
 - (void)identify;
 
 - (uint32_t)run:(UInt32)pc timeout:(NSTimeInterval)timeout;

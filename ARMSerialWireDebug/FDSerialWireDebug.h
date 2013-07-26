@@ -49,7 +49,7 @@
 
 - (void)massErase;
 - (void)erase:(UInt32)address;
-- (void)program:(UInt32)address data:(NSData *)data;
+- (void)flash:(UInt32)address data:(NSData *)data;
 
 - (void)reset;
 
