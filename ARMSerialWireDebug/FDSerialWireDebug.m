@@ -158,7 +158,8 @@
         _registerRetryCount = 3;
         _recoveryRetryCount = 5;
         
-        _tarIncrementBits = 0x3ff;
+        _tarIncrementBits = 0x3f;
+//        _tarIncrementBits = 0x3ff;
     }
     return self;
 }
@@ -677,7 +678,8 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
         UInt32 value = (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
         BOOL parity = bytes[4] >> 7;
         BOOL actual = [self getParityUInt32:value];
-        if (parity != actual) {
+        if (parity != actual) { // This happens inconsistently... -denis
+            [_serialEngine read]; // flush any pending data... -denis
             @throw [NSException exceptionWithName:@"read error"
                                            reason:@"parity mismatch"
                                          userInfo:nil];
