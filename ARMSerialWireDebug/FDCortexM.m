@@ -158,6 +158,7 @@
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R0 value:r0];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R1 value:r1];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R2 value:r2];
+    [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R3 value:r3];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_SP value:_stackRange.location + _stackRange.length];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_PC value:pc];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_LR value:_breakLocation | 0x00000001];
