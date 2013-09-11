@@ -14,7 +14,12 @@
 
 // Debug Port (DP)
 
+// Cortex M3
 #define SWD_DPID 0x2ba01477
+// Cortex M0
+#define SWD_DPID_CM0DAP1 0x0bb11477
+// Cortex M0+
+#define SWD_DPID_CM0DAP2 0x0bb12477
 
 #define SWD_DP_IDCODE 0x00
 #define SWD_DP_ABORT  0x00
@@ -22,6 +27,8 @@
 #define SWD_DP_STAT   0x04
 #define SWD_DP_SELECT 0x08
 #define SWD_DP_RDBUFF 0x0c
+
+#define SWD_DP_IDCODE_MIN 0x00010000
 
 #define SWD_DP_ABORT_ORUNERRCLR BIT(4)
 #define SWD_DP_ABORT_WDERRCLR BIT(3)
@@ -57,11 +64,12 @@
 
 #define SWD_AAP_STATUS_ERASEBUSY 0x00000001
 
-#define SWD_AAP_ID 0x16e60001  // Device is locked
+// Device is locked
+#define SWD_AAP_ID 0x16e60001
 
 // Advanced High-Performance Bus Access Port (AHB_AP or just AP)
-
-#define SWD_AHB_AP_ID 0x24770011  // Device is unlocked
+#define SWD_AHB_AP_ID_V1 0x24770011
+#define SWD_AHB_AP_ID_v2 0x04770021
 
 #define SWD_AP_CSW 0x00
 #define SWD_AP_TAR 0x04
@@ -120,6 +128,9 @@
 @property NSUInteger debugPortStatusRetryCount;
 @property NSUInteger registerRetryCount;
 @property NSUInteger recoveryRetryCount;
+
+@property uint32_t dpid;
+@property uint32_t apid;
 
 @property BOOL overrunDetectionEnabled;
 @property UInt32 tarIncrementBits;
@@ -476,11 +487,17 @@ typedef enum {
     }
     
     FDLog(@"attempting to recover from debug port status: %@", [self getDebugPortStatusMessage:status]);
-    [self writeDebugPort:SWD_DP_ABORT value:
-     SWD_DP_ABORT_ORUNERRCLR |
-     SWD_DP_ABORT_WDERRCLR |
-     SWD_DP_ABORT_STKERRCLR |
-     SWD_DP_ABORT_STKCMPCLR];
+    if ([self isMinimalDebugPort]) {
+        [self writeDebugPort:SWD_DP_ABORT value:
+         SWD_DP_ABORT_ORUNERRCLR |
+         SWD_DP_ABORT_WDERRCLR];
+    } else {
+        [self writeDebugPort:SWD_DP_ABORT value:
+         SWD_DP_ABORT_ORUNERRCLR |
+         SWD_DP_ABORT_WDERRCLR |
+         SWD_DP_ABORT_STKERRCLR |
+         SWD_DP_ABORT_STKCMPCLR];
+    }
     
     UInt32 recoveryStatus = [self readDebugPort:SWD_DP_STAT];
     if (recoveryStatus & (SWD_DP_STAT_WDATAERR | SWD_DP_STAT_STICKYERR | SWD_DP_STAT_STICKYORUN)) {
@@ -573,6 +590,12 @@ typedef enum {
 
 - (void)setOverrunDetection:(BOOL)enabled
 {
+    if ([self isMinimalDebugPort]) {
+        @throw [NSException exceptionWithName:@"overrun detection not supported"
+                                       reason:@"overrun detection not supported in minimal debug port"
+                                     userInfo:nil];
+    }
+    
     [self writeDebugPort:SWD_DP_ABORT value:
      SWD_DP_ABORT_ORUNERRCLR |
      SWD_DP_ABORT_WDERRCLR |
@@ -721,9 +744,22 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (void)writeMemory:(UInt32)address data:(NSData *)data
 {
-    [self paginate:_tarIncrementBits address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
-        [self writeMemoryTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
-    }];
+    if ([self isMinimalDebugPort]) {
+        uint32_t wordAddress = address;
+        uint32_t endAddress = address + (uint32_t)data.length;
+        uint8_t *bytes = (uint8_t *)data.bytes;
+        NSUInteger index = 0;
+        while (wordAddress < endAddress) {
+            uint32_t value = bytes[index] | (bytes[index + 1] << 8) | (bytes[index + 2] << 16) | (bytes[index + 3] << 24);
+            [self writeMemory:wordAddress value:value];
+            wordAddress += 4;
+            index += 4;
+        }
+    } else {
+        [self paginate:_tarIncrementBits address:address length:(UInt32)data.length block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+            [self writeMemoryTransfer:subaddress data:[data subdataWithRange:NSMakeRange(offset, sublength)]];
+        }];
+    }
 }
 
 - (NSData *)readMemory:(UInt32)address length:(UInt32)length
@@ -732,9 +768,20 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     uint32_t readLength = length + (address & 0x03);
     readLength += (4 - (readLength & 0x3)) & 0x03;
     NSMutableData *data = [NSMutableData dataWithCapacity:readLength];
-    [self paginate:_tarIncrementBits address:readAddress length:readLength block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
-        [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
-    }];
+    if ([self isMinimalDebugPort]) {
+        uint32_t wordAddress = readAddress;
+        uint32_t endAddress = readAddress + readLength;
+        while (wordAddress < endAddress) {
+            uint32_t value = [self readMemory:wordAddress];
+            uint8_t bytes[4] = {value, value >> 8, value >> 16, value >> 24};
+            [data appendBytes:bytes length:4];
+            wordAddress += 4;
+        }
+    } else {
+        [self paginate:_tarIncrementBits address:readAddress length:readLength block:^(UInt32 subaddress, UInt32 offset, UInt32 sublength) {
+            [data appendData:[self readMemoryTransfer:subaddress length:sublength]];
+        }];
+    }
     return [data subdataWithRange:NSMakeRange(address - readAddress, length)];
 }
 
@@ -1034,6 +1081,11 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 //    NSLog(@"write register %04x = %08x done", registerID, value);
 }
 
+- (uint32_t)readAccessPortID
+{
+    return [self readAccessPort:SWD_AAP_IDR];
+}
+
 - (void)initializeDebugPort
 {
     [self readDebugPort:SWD_DP_STAT];
@@ -1054,24 +1106,30 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self writeDebugPort:SWD_DP_SELECT value:0];
 
     [self readDebugPort:SWD_DP_STAT];
+    
+    // cache values needed for various higher level routines (such as reading and writing to memory in bulk)
+    _dpid = [self readDebugPort:0];
+    _apid = [self readAccessPortID];
 }
 
-- (uint32_t)readAccessPortID
+- (BOOL)isMinimalDebugPort
 {
-    return [self readAccessPort:SWD_AAP_IDR];
+    return _apid & SWD_DP_IDCODE_MIN ? YES : NO;
 }
+
+#define IDR_CODE(id) (((id) >> 17) & 0x7ff)
 
 - (BOOL)isAuthenticationAccessPortActive {
     uint32_t dpid = [self readDebugPort:0];
-    if (dpid != SWD_DPID) {
-        @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:@"DPID not recognized" userInfo:nil];
+    if ((dpid != SWD_DPID) && (dpid != SWD_DPID_CM0DAP1) && (dpid != SWD_DPID_CM0DAP2)){
+        @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:[NSString stringWithFormat:@"DPID 0x%08x not recognized", dpid] userInfo:nil];
     }
     
     uint32_t apid = [self readAccessPortID];
-    if (apid == SWD_AHB_AP_ID) {
-        return NO;
+    if (IDR_CODE(apid) == IDR_CODE(SWD_AAP_ID)) {
+        return YES;
     }
-    return YES;
+    return NO;
     /*
     if (apid == SWD_AAP_ID) {
         return YES;

@@ -27,6 +27,8 @@
 - (UInt32)readDebugPortIDCode;
 - (void)initializeDebugPort;
 
+- (BOOL)isMinimalDebugPort;
+
 - (BOOL)isAuthenticationAccessPortActive;
 - (void)authenticationAccessPortErase;
 - (void)authenticationAccessPortReset;
