@@ -1114,7 +1114,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (BOOL)isMinimalDebugPort
 {
-    return _apid & SWD_DP_IDCODE_MIN ? YES : NO;
+    return _dpid & SWD_DP_IDCODE_MIN ? YES : NO;
 }
 
 #define IDR_CODE(id) (((id) >> 17) & 0x7ff)
