@@ -44,6 +44,7 @@
         FDLog(@"failure opening USB device: %08x", kernReturn);
         (void) (*_deviceInterface)->Release(_deviceInterface);
         self.deviceInterface = NULL;
+        @throw [NSException exceptionWithName:@"USBDeviceOpenFailure" reason:@"USB device open failure" userInfo:nil];
     }
     
     //Placing the constant kIOUSBFindInterfaceDontCare into the following
