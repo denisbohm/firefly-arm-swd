@@ -197,6 +197,10 @@
     [_serialEngine write];
     
     [self getGpios];
+
+    // reading detect seems flakey, the following seems to make it stable -denis
+    [self setGpioBit:_gpioWriteBit value:true];
+    [self getGpios];
 }
 
 - (void)getGpios
@@ -1012,6 +1016,15 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     return [self readMemory:SWD_MEMORY_CPUID];
 }
 
+- (void)writeDHCSR:(uint32_t)value
+{
+    value |= SWD_DHCSR_DBGKEY | SWD_DHCSR_CTRL_DEBUGEN;
+    if (_maskInterrupts) {
+        value |= SWD_DHCSR_CTRL_MASKINTS;
+    }
+    [self writeMemory:SWD_MEMORY_DHCSR value:value];
+}
+
 - (void)halt
 {
     [self writeMemory:SWD_MEMORY_DHCSR value:SWD_DHCSR_DBGKEY | SWD_DHCSR_CTRL_DEBUGEN |
@@ -1020,14 +1033,12 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (void)step
 {
-    [self writeMemory:SWD_MEMORY_DHCSR value:SWD_DHCSR_DBGKEY | SWD_DHCSR_CTRL_DEBUGEN |
-     SWD_DHCSR_CTRL_STEP | SWD_DHCSR_CTRL_MASKINTS];
+    [self writeDHCSR:SWD_DHCSR_CTRL_STEP];
 }
 
 - (void)run
 {
-    [self writeMemory:SWD_MEMORY_DHCSR value:SWD_DHCSR_DBGKEY | SWD_DHCSR_CTRL_DEBUGEN |
-     SWD_DHCSR_CTRL_MASKINTS];
+    [self writeDHCSR:0];
 }
 
 - (BOOL)isHalted

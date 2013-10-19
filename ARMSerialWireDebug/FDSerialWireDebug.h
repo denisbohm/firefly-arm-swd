@@ -16,6 +16,8 @@
 @property FDSerialEngine *serialEngine;
 @property FDLogger *logger;
 
+@property BOOL maskInterrupts;
+
 - (void)initialize;
 
 - (BOOL)getGpioDetect;

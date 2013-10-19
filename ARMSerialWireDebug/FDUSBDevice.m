@@ -136,6 +136,7 @@
     }
 }
 
+/*
 - (void)close
 {
     if (_deviceInterface == NULL) {
@@ -145,6 +146,33 @@
     (void) (*_interface)->USBInterfaceClose(_interface);
     (void) (*_interface)->Release(_interface);
     
+    kern_return_t kernReturn = (*_deviceInterface)->USBDeviceClose(_deviceInterface);
+    if (kernReturn != kIOReturnSuccess) {
+        FDLog(@"failure closing USB device: %08x", kernReturn);
+    }
+    kernReturn = (*_deviceInterface)->Release(_deviceInterface);
+    if (kernReturn != kIOReturnSuccess) {
+        FDLog(@"failure releasing USB device interface: %08x", kernReturn);
+    }
+    self.deviceInterface = NULL;
+}
+*/
+
+- (void)close
+{
+    if (_interface == NULL) {
+        return;
+    }
+    
+    (void) (*_interface)->USBInterfaceClose(_interface);
+    (void) (*_interface)->Release(_interface);
+    self.interface = NULL;
+}
+
+- (void)releaseDevice
+{
+    [self close];
+
     kern_return_t kernReturn = (*_deviceInterface)->USBDeviceClose(_deviceInterface);
     if (kernReturn != kIOReturnSuccess) {
         FDLog(@"failure closing USB device: %08x", kernReturn);
