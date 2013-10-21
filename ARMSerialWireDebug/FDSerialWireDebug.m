@@ -457,6 +457,12 @@ typedef enum {
     return [self readDebugPort:SWD_DP_IDCODE];
 }
 
+- (UInt32)readTargetID
+{
+    [self writePort:SWDDebugPort registerOffset:SWD_DP_SELECT value:0x02];
+    return [self readDebugPort:0x04];
+}
+
 - (void)waitForDebugPortStatus:(UInt32)mask
 {
     for (NSUInteger retry = 0; retry < _debugPortStatusRetryCount; ++ retry) {

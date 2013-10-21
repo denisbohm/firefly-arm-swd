@@ -32,45 +32,51 @@
 
 + (NSString *)debugPortIDCodeDescription:(uint32_t)debugPortIDCode
 {
-    return [NSString stringWithFormat:@"TAP ID %08x", debugPortIDCode];
     /*
-     unsigned version = (debugPortIDCode >> 28) & 0xf;
-     unsigned partNumber = (debugPortIDCode >> 12) & 0xff;
-     unsigned manufacturer = debugPortIDCode & 0x7f;
-     unsigned marker = debugPortIDCode & 0x1;
-     if (marker != 1) {
-     FDLog(@"invalid debug port identification code %08x: marker not set", debugPortIDCode);
-     }
-     if (manufacturer == 0x477) {
-     FDLog(@"TAP ID: ARM is the manufacturer");
-     }
-     FDLog(@"TAP ID: version %u, part number %u, manufacturer %03x", version, partNumber, manufacturer);
-     unsigned coreAndCapability = (partNumber >> 8) & 0xf;
-     NSString *capabilityName = nil;
-     switch (coreAndCapability) {
-     case 0x0: capabilityName = @"ARM Processor pre E extension - hard macrocell"; break;
-     case 0x1: capabilityName = @"ARM Processor pre E extension - soft macrocell"; break;
-     case 0x2: capabilityName = @"Reserved"; break;
-     case 0x3: capabilityName = @"Reserved"; break;
-     case 0x4: capabilityName = @"ARM processor with E extension - hard macrocell"; break;
-     case 0x5: capabilityName = @"ARM processor with E extension - soft macrocell"; break;
-     case 0x6: capabilityName = @"ARM Processor with J extension - hard macrocell"; break;
-     case 0x7: capabilityName = @"ARM Processor with J extension - soft macrocell"; break;
-     case 0x8: capabilityName = @"Reserved"; break;
-     case 0x9: capabilityName = @"Not a recognized executable ARM device"; break;
-     case 0xa: capabilityName = @"Reserved"; break;
-     case 0xb: capabilityName = @"ARM Embedded Trace Buffer"; break;
-     case 0xc: capabilityName = @"Reserved"; break;
-     case 0xd: capabilityName = @"Reserved"; break;
-     case 0xe: capabilityName = @"Reserved"; break;
-     case 0xf: capabilityName = @"Test chip boundary scan ID"; break;
-     }
-     FDLog(@"TAP ID: capability %@", capabilityName);
-     unsigned processorCore = partNumber >> 11;
-     unsigned family = partNumber >> 8;
-     unsigned deviceNumber = partNumber & 0xff;
-     FDLog(@"TAP ID: %@ processor core, family ARM%u, device number %u", processorCore ? @"non-ARM" : @"ARM", family, deviceNumber);
+    unsigned revision = (debugPortIDCode >> 28) & 0xf;
+    unsigned partNumber = (debugPortIDCode >> 20) & 0xff;
+    BOOL min = (debugPortIDCode >> 16) & 0x1 ? YES : NO;
+    unsigned version = (debugPortIDCode >> 12) & 0xf;
+    unsigned designer = (debugPortIDCode >> 1) & 0x7ff;
+    unsigned marker = debugPortIDCode & 0x1;
+    if (marker != 1) {
+        NSLog(@"invalid debug port identification code %08x: marker not set", debugPortIDCode);
+    }
+    if (designer == 0x23B) {
+        NSLog(@"TAP ID: ARM is the manufacturer");
+    }
+    NSLog(@"TAP ID: revision %u, part number %02x, min %@, version %u, designer %03x", revision, partNumber, min ? @"YES" : @"NO", version, designer);
      */
+    
+    /*
+    unsigned coreAndCapability = (partNumber >> 8) & 0xf;
+    NSString *capabilityName = nil;
+    switch (coreAndCapability) {
+        case 0x0: capabilityName = @"ARM Processor pre E extension - hard macrocell"; break;
+        case 0x1: capabilityName = @"ARM Processor pre E extension - soft macrocell"; break;
+        case 0x2: capabilityName = @"Reserved"; break;
+        case 0x3: capabilityName = @"Reserved"; break;
+        case 0x4: capabilityName = @"ARM processor with E extension - hard macrocell"; break;
+        case 0x5: capabilityName = @"ARM processor with E extension - soft macrocell"; break;
+        case 0x6: capabilityName = @"ARM Processor with J extension - hard macrocell"; break;
+        case 0x7: capabilityName = @"ARM Processor with J extension - soft macrocell"; break;
+        case 0x8: capabilityName = @"Reserved"; break;
+        case 0x9: capabilityName = @"Not a recognized executable ARM device"; break;
+        case 0xa: capabilityName = @"Reserved"; break;
+        case 0xb: capabilityName = @"ARM Embedded Trace Buffer"; break;
+        case 0xc: capabilityName = @"Reserved"; break;
+        case 0xd: capabilityName = @"Reserved"; break;
+        case 0xe: capabilityName = @"Reserved"; break;
+        case 0xf: capabilityName = @"Test chip boundary scan ID"; break;
+    }
+    NSLog(@"TAP ID: capability %@", capabilityName);
+    unsigned processorCore = partNumber >> 11;
+    unsigned family = partNumber >> 8;
+    unsigned deviceNumber = partNumber & 0xff;
+    NSLog(@"TAP ID: %@ processor core, family ARM%u, device number %u", processorCore ? @"non-ARM" : @"ARM", family, deviceNumber);
+     */
+    
+    return [NSString stringWithFormat:@"TAP ID %08x", debugPortIDCode];
 }
 
 + (NSString *)cpuIDDescription:(uint32_t)cpuID
@@ -111,6 +117,8 @@
     [_serialWireDebug resetDebugPort];
     uint32_t debugPortIDCode = [_serialWireDebug readDebugPortIDCode];
     NSLog(@"%@", [FDCortexM debugPortIDCodeDescription:debugPortIDCode]);
+    // if debug architecture version is 2 then read target id...
+    // uint32_t targetId = [_serialWireDebug readTargetID];
     [_serialWireDebug initializeDebugPort];
     
     if ([_serialWireDebug isAuthenticationAccessPortActive]) {

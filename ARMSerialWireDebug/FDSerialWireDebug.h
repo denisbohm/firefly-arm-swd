@@ -27,6 +27,7 @@
 
 - (void)resetDebugPort;
 - (UInt32)readDebugPortIDCode;
+- (UInt32)readTargetID;
 - (void)initializeDebugPort;
 
 - (BOOL)isMinimalDebugPort;
