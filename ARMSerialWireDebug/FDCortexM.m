@@ -153,9 +153,19 @@
     return [self run:pc r0:r0 r1:r1 r2:r2 r3:0 timeout:timeout];
 }
 
+- (void)logDebugInfo
+{
+    uint32_t dhcsr = [_serialWireDebug readMemory:0xE000EDF0];
+    uint32_t demcr = [_serialWireDebug readMemory:0xE000EDFC];
+    uint32_t pc = [_serialWireDebug readRegister:CORTEX_M_REGISTER_PC];
+    uint32_t lr = [_serialWireDebug readRegister:CORTEX_M_REGISTER_LR];
+    NSLog(@"run timeout: dhcsr=0x%08x demcr=0x%08x pc=0x%08x lr=0x%08x", dhcsr, demcr, pc, lr);
+}
+
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3 timeout:(NSTimeInterval)timeout
 {
     [_serialWireDebug halt];
+
     // Can only use hardware breakpoints if code is in FLASH.
     // Instead we set the link register to a halt function, which then gets called on return. -denis
     /*
@@ -170,8 +180,25 @@
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_SP value:_stackRange.location + _stackRange.length];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_PC value:pc];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_LR value:_breakLocation | 0x00000001];
+
+#if 0
+    [self logDebugInfo];
+    for (int i = 0; i < 100000; ++i) {
+        if (pc == 0x20000289) {
+            break;
+        }
+        [_serialWireDebug step];
+    }
+    [self logDebugInfo];
+#endif
+    
     [_serialWireDebug run];
-    [_serialWireDebug waitForHalt:timeout];
+    @try {
+        [_serialWireDebug waitForHalt:timeout];
+    } @catch (NSException *e) {
+        [self logDebugInfo];
+        @throw;
+    }
     return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
 }
 
