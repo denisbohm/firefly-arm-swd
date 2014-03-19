@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0500"
+   LastUpgradeVersion = "0510"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -33,7 +33,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "92B8B83F16FF70BD00BE38ED"
-               BuildableName = "ARMSerialWireDebugTests.octest"
+               BuildableName = "ARMSerialWireDebugTests.xctest"
                BlueprintName = "ARMSerialWireDebugTests"
                ReferencedContainer = "container:ARMSerialWireDebug.xcodeproj">
             </BuildableReference>

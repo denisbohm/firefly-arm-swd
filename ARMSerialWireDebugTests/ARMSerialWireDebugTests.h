@@ -6,8 +6,8 @@
 //  Copyright (c) 2013 Firefly Design. All rights reserved.
 //
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
-@interface ARMSerialWireDebugTests : SenTestCase
+@interface ARMSerialWireDebugTests : XCTestCase
 
 @end

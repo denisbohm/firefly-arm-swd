@@ -24,7 +24,6 @@
 		92B8B82C16FF70BD00BE38ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B82B16FF70BD00BE38ED /* Cocoa.framework */; };
 		92B8B83616FF70BD00BE38ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 92B8B83416FF70BD00BE38ED /* InfoPlist.strings */; };
 		92B8B83A16FF70BD00BE38ED /* ARMSerialWireDebug.m in Sources */ = {isa = PBXBuildFile; fileRef = 92B8B83916FF70BD00BE38ED /* ARMSerialWireDebug.m */; };
-		92B8B84216FF70BD00BE38ED /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B84116FF70BD00BE38ED /* SenTestingKit.framework */; };
 		92B8B84316FF70BD00BE38ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B82B16FF70BD00BE38ED /* Cocoa.framework */; };
 		92B8B84616FF70BD00BE38ED /* ARMSerialWireDebug.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B82816FF70BD00BE38ED /* ARMSerialWireDebug.framework */; };
 		92B8B84C16FF70BD00BE38ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 92B8B84A16FF70BD00BE38ED /* InfoPlist.strings */; };
@@ -66,8 +65,7 @@
 		92B8B83716FF70BD00BE38ED /* ARMSerialWireDebug-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ARMSerialWireDebug-Prefix.pch"; sourceTree = "<group>"; };
 		92B8B83816FF70BD00BE38ED /* ARMSerialWireDebug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ARMSerialWireDebug.h; sourceTree = "<group>"; };
 		92B8B83916FF70BD00BE38ED /* ARMSerialWireDebug.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ARMSerialWireDebug.m; sourceTree = "<group>"; };
-		92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ARMSerialWireDebugTests.octest; sourceTree = BUILT_PRODUCTS_DIR; };
-		92B8B84116FF70BD00BE38ED /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
+		92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ARMSerialWireDebugTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		92B8B84916FF70BD00BE38ED /* ARMSerialWireDebugTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "ARMSerialWireDebugTests-Info.plist"; sourceTree = "<group>"; };
 		92B8B84B16FF70BD00BE38ED /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		92B8B84D16FF70BD00BE38ED /* ARMSerialWireDebugTests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ARMSerialWireDebugTests.h; sourceTree = "<group>"; };
@@ -88,7 +86,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				92B8B84216FF70BD00BE38ED /* SenTestingKit.framework in Frameworks */,
 				92B8B84316FF70BD00BE38ED /* Cocoa.framework in Frameworks */,
 				92B8B84616FF70BD00BE38ED /* ARMSerialWireDebug.framework in Frameworks */,
 			);
@@ -111,7 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				92B8B82816FF70BD00BE38ED /* ARMSerialWireDebug.framework */,
-				92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.octest */,
+				92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,7 +118,6 @@
 			children = (
 				92B8B82B16FF70BD00BE38ED /* Cocoa.framework */,
 				9262620216FF73D50067A371 /* IOKit.framework */,
-				92B8B84116FF70BD00BE38ED /* SenTestingKit.framework */,
 				92B8B82D16FF70BD00BE38ED /* Other Frameworks */,
 			);
 			name = Frameworks;
@@ -243,8 +239,8 @@
 			);
 			name = ARMSerialWireDebugTests;
 			productName = ARMSerialWireDebugTests;
-			productReference = 92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.octest */;
-			productType = "com.apple.product-type.bundle";
+			productReference = 92B8B84016FF70BD00BE38ED /* ARMSerialWireDebugTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -252,6 +248,7 @@
 		92B8B81F16FF70BD00BE38ED /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastTestingUpgradeCheck = 0510;
 				LastUpgradeCheck = 0500;
 				ORGANIZATIONNAME = "Firefly Design";
 			};
@@ -460,12 +457,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = "\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"\\\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\\\"",
+					"$(inherited)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebugTests/ARMSerialWireDebugTests-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				WRAPPER_EXTENSION = octest;
 			};
 			name = Debug;
 		};
@@ -473,12 +472,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = "\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"\\\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\\\"",
+					"$(inherited)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebugTests/ARMSerialWireDebugTests-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				WRAPPER_EXTENSION = octest;
 			};
 			name = Release;
 		};
