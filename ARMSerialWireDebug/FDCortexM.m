@@ -101,6 +101,10 @@
         case 0xC24: partnoName = @"Cortex-M4"; break;
     }
     //    FDLog(@"CPU ID: %@ %@ r%dp%d", implementerName, partnoName, variant, revision);
+    if ((cpuID & 0xfffffff0) == 0x410fc240) {
+        uint32_t n = cpuID & 0x0000000f;
+        return [NSString stringWithFormat:@"ARM Cortex-M4 r2p%d", n];
+    }
     if ((cpuID & 0xfffffff0) == 0x412fc230) {
         uint32_t n = cpuID & 0x0000000f;
         return [NSString stringWithFormat:@"ARM Cortex-M3 r2p%d", n];

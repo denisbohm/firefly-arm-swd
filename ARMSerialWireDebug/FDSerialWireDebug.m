@@ -14,8 +14,10 @@
 
 // Debug Port (DP)
 
+// Cortex M4
+#define SWD_DPID_CM4 0x0ba01477
 // Cortex M3
-#define SWD_DPID 0x2ba01477
+#define SWD_DPID_CM3 0x2ba01477
 // Cortex M0
 #define SWD_DPID_CM0DAP1 0x0bb11477
 // Cortex M0+
@@ -1138,7 +1140,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (BOOL)isAuthenticationAccessPortActive {
     uint32_t dpid = [self readDebugPort:0];
-    if ((dpid != SWD_DPID) && (dpid != SWD_DPID_CM0DAP1) && (dpid != SWD_DPID_CM0DAP2)){
+    if ((dpid != SWD_DPID_CM4) && (dpid != SWD_DPID_CM3) && (dpid != SWD_DPID_CM0DAP1) && (dpid != SWD_DPID_CM0DAP2)){
         @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:[NSString stringWithFormat:@"DPID 0x%08x not recognized", dpid] userInfo:nil];
     }
     
