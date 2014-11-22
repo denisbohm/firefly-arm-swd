@@ -1064,7 +1064,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
             return;
         }
         
-        [NSThread sleepForTimeInterval:0.001];
+        [NSThread sleepForTimeInterval:0.1];
         now = [NSDate date];
     } while ([now timeIntervalSinceDate:start] < timeout);
     @throw [NSException exceptionWithName:@"timeout"reason:@"timeout" userInfo:nil];

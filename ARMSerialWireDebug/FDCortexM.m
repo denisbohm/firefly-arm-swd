@@ -200,7 +200,10 @@
     @try {
         [_serialWireDebug waitForHalt:timeout];
     } @catch (NSException *e) {
-        [self logDebugInfo];
+        @try {
+            [self logDebugInfo];
+        } @catch (NSException *) {
+        }
         @throw;
     }
     return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
