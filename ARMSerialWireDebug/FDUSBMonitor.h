@@ -27,6 +27,8 @@
 @property id<FDUSBMonitorDelegate> delegate;
 @property FDLogger *logger;
 
+@property (readonly) NSArray *devices;
+
 - (void)start;
 
 @end

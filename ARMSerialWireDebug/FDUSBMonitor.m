@@ -33,6 +33,11 @@
     return self;
 }
 
+- (NSArray *)devices
+{
+    return [NSArray arrayWithArray:_usbDevices];
+}
+
 - (void)USBDeviceRemoved:(FDUSBDevice *)usbDevice
 {
     kern_return_t kernReturn = IOObjectRelease(usbDevice.notification);
