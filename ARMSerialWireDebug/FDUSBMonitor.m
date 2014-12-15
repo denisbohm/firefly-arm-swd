@@ -173,6 +173,16 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
     [self USBDevicesAdded:gRawAddedIter];
 }
 
+- (FDUSBDevice *)deviceWithLocation:(NSObject *)location
+{
+    for (FDUSBDevice *device in _usbDevices) {
+        if ([device.location isEqualTo:location]) {
+            return device;
+        }
+    }
+    return nil;
+}
+
 - (void)USBRun:(id)argument
 {
     [self USBStart];

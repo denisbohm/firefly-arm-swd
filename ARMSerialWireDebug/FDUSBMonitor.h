@@ -31,4 +31,6 @@
 
 - (void)start;
 
+- (FDUSBDevice *)deviceWithLocation:(NSObject *)location;
+
 @end

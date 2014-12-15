@@ -115,7 +115,7 @@
         if (kernReturn != KERN_SUCCESS) {
             NSLog(@"GetLocationID failed (%08x)", kernReturn);
         }
-        _location = [NSNumber numberWithInt:_locationID];
+        _location = [NSNumber numberWithLong:_locationID];
         _typeAndLocation = [NSString stringWithFormat:@"Olimex ARM-USB-TINY-H %u", _locationID];
 
         // use the first interface -denis
