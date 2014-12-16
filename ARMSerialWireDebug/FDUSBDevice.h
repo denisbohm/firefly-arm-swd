@@ -26,6 +26,7 @@
 
 @property FDLogger *logger;
 @property FDUSBMonitor *usbMonitor;
+@property io_service_t service;
 @property IOUSBDeviceInterface **deviceInterface;
 @property io_object_t notification;
 

@@ -19,8 +19,25 @@
 
 @end
 
+@protocol FDUSBMonitorMatcher <NSObject>
+
+- (BOOL)matches:(IOUSBDeviceInterface **)deviceInterface;
+
+@end
+
+@interface FDUSBMonitorMatcherVidPid : NSObject<FDUSBMonitorMatcher>
+
++ (FDUSBMonitorMatcherVidPid *)matcher:(NSString *)name vid:(uint16_t)vid pid:(uint16_t)pid;
+
+@property NSString *name;
+@property uint16_t vid;
+@property uint16_t pid;
+
+@end
+
 @interface FDUSBMonitor : NSObject
 
+@property NSArray *matchers;
 @property UInt16 vendor;
 @property UInt16 product;
 

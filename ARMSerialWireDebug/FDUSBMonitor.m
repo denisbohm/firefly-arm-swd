@@ -14,6 +14,36 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/usb/IOUSBLib.h>
 
+#include <IOKit/serial/IOSerialKeys.h>
+
+@implementation FDUSBMonitorMatcherVidPid
+
++ (FDUSBMonitorMatcherVidPid *)matcher:(NSString *)name vid:(uint16_t)vid pid:(uint16_t)pid
+{
+    FDUSBMonitorMatcherVidPid *matcher = [[FDUSBMonitorMatcherVidPid alloc] init];
+    matcher.name = name;
+    matcher.vid = vid;
+    matcher.pid = pid;
+    return matcher;
+}
+
+- (BOOL)matches:(IOUSBDeviceInterface **)deviceInterface
+{
+    UInt16 vendor;
+    kern_return_t kernReturn = (*deviceInterface)->GetDeviceVendor(deviceInterface, &vendor);
+    if (kernReturn != kIOReturnSuccess) {
+        NSLog(@"failure GetDeviceVendor: %08x", kernReturn);
+    }
+    UInt16 product;
+    kernReturn = (*deviceInterface)->GetDeviceProduct(deviceInterface, &product);
+    if (kernReturn != kIOReturnSuccess) {
+        NSLog(@"failure GetDeviceProduct: %08x", kernReturn);
+    }
+    return (vendor == _vid) && (product == _pid);
+}
+
+@end
+
 @interface FDUSBMonitor ()
 
 @property IONotificationPortRef notificationPort;
@@ -63,6 +93,16 @@ void USBDeviceInterest(
     }
 }
 
+- (BOOL)matches:(IOUSBDeviceInterface **)deviceInterface
+{
+    for (id<FDUSBMonitorMatcher> matcher in self.matchers) {
+        if ([matcher matches:deviceInterface]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (void)USBDevicesAdded:(io_iterator_t)iterator
 {
     io_service_t service;
@@ -96,20 +136,27 @@ void USBDeviceInterest(
             printf("Couldn’t create a device interface (%08x)\n", (int) result);
             continue;
         }
-        //Check these values for confirmation
-        UInt16 vendor;
-        kernReturn = (*deviceInterface)->GetDeviceVendor(deviceInterface, &vendor);
-        if (kernReturn != kIOReturnSuccess) {
-            FDLog(@"failure GetDeviceVendor: %08x", kernReturn);
-        }
-        UInt16 product;
-        kernReturn = (*deviceInterface)->GetDeviceProduct(deviceInterface, &product);
-        if (kernReturn != kIOReturnSuccess) {
-            FDLog(@"failure GetDeviceProduct: %08x", kernReturn);
-        }
-        if ((vendor != self.vendor) || (product != self.product)) {
-            (void) (*deviceInterface)->Release(deviceInterface);
-            continue;
+
+        if (self.matchers != nil) {
+            if (![self matches:deviceInterface]) {
+                continue;
+            }
+        } else {
+            //Check these values for confirmation
+            UInt16 vendor;
+            kernReturn = (*deviceInterface)->GetDeviceVendor(deviceInterface, &vendor);
+            if (kernReturn != kIOReturnSuccess) {
+                FDLog(@"failure GetDeviceVendor: %08x", kernReturn);
+            }
+            UInt16 product;
+            kernReturn = (*deviceInterface)->GetDeviceProduct(deviceInterface, &product);
+            if (kernReturn != kIOReturnSuccess) {
+                FDLog(@"failure GetDeviceProduct: %08x", kernReturn);
+            }
+            if ((vendor != self.vendor) || (product != self.product)) {
+                (void) (*deviceInterface)->Release(deviceInterface);
+                continue;
+            }
         }
         UInt32 locationID;
         kernReturn = (*deviceInterface)->GetLocationID(deviceInterface, &locationID);
@@ -131,8 +178,11 @@ void USBDeviceInterest(
             FDLog(@"failure IOServiceAddInterestNotification: %08x", kernReturn);
         }
         usbDevice.usbMonitor = self;
+        usbDevice.service = service;
         usbDevice.deviceInterface = deviceInterface;
         usbDevice.notification = notification;
+        usbDevice.location = [NSNumber numberWithLong:locationID];
+
         [_usbDevices addObject:usbDevice];
         [_delegate usbMonitor:self usbDeviceAdded:usbDevice];
     }
