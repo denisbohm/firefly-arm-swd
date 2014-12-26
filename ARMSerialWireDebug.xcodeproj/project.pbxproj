@@ -21,6 +21,7 @@
 		9262620116FF73A70067A371 /* FDUSBMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 926261F516FF73A70067A371 /* FDUSBMonitor.m */; };
 		9262620316FF73D50067A371 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9262620216FF73D50067A371 /* IOKit.framework */; };
 		927E8572179F2E5D0038CEFC /* FDEFM32.h in Headers */ = {isa = PBXBuildFile; fileRef = 927E8571179F2DDC0038CEFC /* FDEFM32.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		92872F9A1A4A60BD00D7E551 /* ARMSerialWireDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 92B8B83816FF70BD00BE38ED /* ARMSerialWireDebug.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		92B8B82C16FF70BD00BE38ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B82B16FF70BD00BE38ED /* Cocoa.framework */; };
 		92B8B83616FF70BD00BE38ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 92B8B83416FF70BD00BE38ED /* InfoPlist.strings */; };
 		92B8B83A16FF70BD00BE38ED /* ARMSerialWireDebug.m in Sources */ = {isa = PBXBuildFile; fileRef = 92B8B83916FF70BD00BE38ED /* ARMSerialWireDebug.m */; };
@@ -199,6 +200,7 @@
 				926261FC16FF73A70067A371 /* FDSerialWireDebug.h in Headers */,
 				926261FE16FF73A70067A371 /* FDUSBDevice.h in Headers */,
 				9262620016FF73A70067A371 /* FDUSBMonitor.h in Headers */,
+				92872F9A1A4A60BD00D7E551 /* ARMSerialWireDebug.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
