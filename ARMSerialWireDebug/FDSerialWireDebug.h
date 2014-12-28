@@ -52,6 +52,8 @@
 - (UInt8)readMemoryUInt8:(UInt32)address;
 - (UInt16)readMemoryUInt16:(UInt32)address;
 
+- (void)setVectorTable:(uint32_t)address;
+
 - (void)massErase;
 - (void)erase:(UInt32)address;
 - (void)flash:(UInt32)address data:(NSData *)data;

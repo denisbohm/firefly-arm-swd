@@ -1011,12 +1011,35 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 }
 
 #define SCB 0xE000ED00
+
+#define SCB_ICSR (SCB + 0x004)
+#define SCB_ICSR_PENDSTCLR 0x04000000
+#define SCB_ICSR_PENDSVCLR 0x08000000
+
+#define SCB_VTOR (SCB + 0x008)
+
 #define SCB_AIRCR (SCB + 0x00C)
+#define SCB_AIRCR_VECTKEY     0x05FA0000
+#define SCB_AIRCR_VECTRESET   0x00000001
 #define SCB_AIRCR_SYSRESETREQ 0x05FA0004
+
+#define DEMCR 0xE000EDFC
+#define DEMCR_DWTENA       0x01000000
+#define DEMCR_VC_HARDERR   0x00000400
+#define DEMCR_VC_CORERESET 0x00000001
 
 - (void)reset
 {
-    [self writeMemory:SCB_AIRCR value:SCB_AIRCR_SYSRESETREQ];
+    [self halt];
+    [self writeMemory:DEMCR value:DEMCR_DWTENA | DEMCR_VC_HARDERR | DEMCR_VC_CORERESET];
+    [self writeMemory:SCB_ICSR value:SCB_ICSR_PENDSTCLR | SCB_ICSR_PENDSVCLR];
+    [self writeMemory:SCB_AIRCR value:SCB_AIRCR_VECTKEY | SCB_AIRCR_SYSRESETREQ];
+    [self halt];
+}
+
+- (void)setVectorTable:(uint32_t)address
+{
+    [self writeMemory:SCB_VTOR value:address];
 }
 
 - (UInt32)readCPUID
