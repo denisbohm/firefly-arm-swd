@@ -24,4 +24,21 @@
     }
 }
 
++ (NSString *)callStack:(NSException *)exception {
+    NSMutableString* text = [[NSMutableString alloc] init];
+    [text appendString:[exception name]];
+    [text appendString:@": "];
+    [text appendString:[exception reason]];
+    if ([exception respondsToSelector:@selector(callStackSymbols)]) {
+        NSArray* symbols = [exception performSelector:@selector(callStackSymbols)];
+        NSUInteger count = symbols.count;
+        for (NSUInteger i = 0; i < count; ++i) {
+            [text appendFormat:@"\n%@", [symbols objectAtIndex:i]];
+        }
+    } else {
+        [text appendString: @"\n*** call stack not available ***"];
+    }
+    return text;
+}
+
 @end

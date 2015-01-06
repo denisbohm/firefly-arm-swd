@@ -20,6 +20,8 @@
 
 - (void)logFile:(char *)file line:(NSUInteger)line class:(NSString *)class method:(NSString *)method format:(NSString *)format, ...;
 
++ (NSString *)callStack:(NSException *)exception;
+
 @end
 
 #define FDLog(f, ...) [self.logger logFile:__FILE__ line:__LINE__ class:[self className] method:NSStringFromSelector(_cmd) format:f, ##__VA_ARGS__]
