@@ -8,13 +8,13 @@
 
 #import <Foundation/Foundation.h>
 
-#import "FDCortexM.h"
-#import "FDLogger.h"
-#import "FDSerialEngine.h"
-#import "FDSerialWireDebug.h"
-#import "FDUSBDevice.h"
-#import "FDUSBMonitor.h"
-#import "FDEFM32.h"
+#import <ARMSerialWireDebug/FDCortexM.h>
+#import <ARMSerialWireDebug/FDLogger.h>
+#import <ARMSerialWireDebug/FDSerialEngine.h>
+#import <ARMSerialWireDebug/FDSerialWireDebug.h>
+#import <ARMSerialWireDebug/FDUSBDevice.h>
+#import <ARMSerialWireDebug/FDUSBMonitor.h>
+#import <ARMSerialWireDebug/FDEFM32.h>
 
 @interface ARMSerialWireDebug : NSObject
 
