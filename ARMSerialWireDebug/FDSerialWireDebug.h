@@ -18,6 +18,8 @@
 
 @property BOOL maskInterrupts;
 
+@property BOOL minimalDebugPort;
+
 - (void)initialize;
 
 - (BOOL)getGpioDetect;
@@ -29,8 +31,6 @@
 - (UInt32)readDebugPortIDCode;
 - (UInt32)readTargetID;
 - (void)initializeDebugPort;
-
-- (BOOL)isMinimalDebugPort;
 
 - (BOOL)isAuthenticationAccessPortActive;
 - (void)authenticationAccessPortErase;

@@ -30,8 +30,6 @@
 #define SWD_DP_SELECT 0x08
 #define SWD_DP_RDBUFF 0x0c
 
-#define SWD_DP_IDCODE_MIN 0x00010000
-
 #define SWD_DP_ABORT_ORUNERRCLR BIT(4)
 #define SWD_DP_ABORT_WDERRCLR BIT(3)
 #define SWD_DP_ABORT_STKERRCLR BIT(2)
@@ -499,7 +497,7 @@ typedef enum {
     }
     
     FDLog(@"attempting to recover from debug port status: %@", [self getDebugPortStatusMessage:status]);
-    if ([self isMinimalDebugPort]) {
+    if (self.minimalDebugPort) {
         [self writeDebugPort:SWD_DP_ABORT value:
          SWD_DP_ABORT_ORUNERRCLR |
          SWD_DP_ABORT_WDERRCLR];
@@ -602,7 +600,7 @@ typedef enum {
 
 - (void)setOverrunDetection:(BOOL)enabled
 {
-    if ([self isMinimalDebugPort]) {
+    if (self.minimalDebugPort) {
         @throw [NSException exceptionWithName:@"overrun detection not supported"
                                        reason:@"overrun detection not supported in minimal debug port"
                                      userInfo:nil];
@@ -756,7 +754,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 - (void)writeMemory:(UInt32)address data:(NSData *)data
 {
-    if ([self isMinimalDebugPort]) {
+    if (self.minimalDebugPort) {
         uint32_t wordAddress = address;
         uint32_t endAddress = address + (uint32_t)data.length;
         uint8_t *bytes = (uint8_t *)data.bytes;
@@ -780,7 +778,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     uint32_t readLength = length + (address & 0x03);
     readLength += (4 - (readLength & 0x3)) & 0x03;
     NSMutableData *data = [NSMutableData dataWithCapacity:readLength];
-    if ([self isMinimalDebugPort]) {
+    if (self.minimalDebugPort) {
         uint32_t wordAddress = readAddress;
         uint32_t endAddress = readAddress + readLength;
         while (wordAddress < endAddress) {
@@ -1152,11 +1150,6 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     // cache values needed for various higher level routines (such as reading and writing to memory in bulk)
     _dpid = [self readDebugPort:0];
     _apid = [self readAccessPortID];
-}
-
-- (BOOL)isMinimalDebugPort
-{
-    return _dpid & SWD_DP_IDCODE_MIN ? YES : NO;
 }
 
 #define IDR_CODE(id) (((id) >> 17) & 0x7ff)
