@@ -16,6 +16,8 @@
 @property FDSerialEngine *serialEngine;
 @property FDLogger *logger;
 
+@property UInt16 clockDivisor;
+
 @property BOOL maskInterrupts;
 
 @property BOOL minimalDebugPort;

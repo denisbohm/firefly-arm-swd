@@ -157,6 +157,8 @@
     if (self = [super init]) {
         _logger = [[FDLogger alloc] init];
         
+        _clockDivisor = 5;
+        
         _gpioDirections = 0b0000111100011011;
         _gpioOutputs = 0b0000001000000000;
         _gpioWriteBit = 3;
@@ -184,7 +186,7 @@
     }
     
     [_serialEngine setLoopback:false];
-    [_serialEngine setClockDivisor:5];
+    [_serialEngine setClockDivisor:_clockDivisor];
     [_serialEngine write];
     
     [_serialEngine setLatencyTimer:2];
@@ -412,7 +414,7 @@ typedef enum {
             [self turnToWriteAndSkip];
         }
         if (ack != SWDWaitAck) {
-            @throw [NSException exceptionWithName:@"read port error" reason:@"unexpected ack" userInfo:nil];
+            @throw [NSException exceptionWithName:@"read port error" reason:[NSString stringWithFormat:@"unexpected ack %u", ack] userInfo:nil];
         }
     }
     @throw [NSException exceptionWithName:@"read port error" reason:@"too many retries" userInfo:nil];
