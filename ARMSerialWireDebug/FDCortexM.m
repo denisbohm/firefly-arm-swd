@@ -202,6 +202,11 @@
     } @catch (NSException *e) {
         @try {
             [self logDebugInfo];
+            uint32_t current_pc = [_serialWireDebug readRegister:CORTEX_M_REGISTER_PC];
+            if (current_pc == (_breakLocation | 0x00000001)) {
+                NSLog(@"halted, but halt bit not set");
+                return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
+            }
         } @catch (NSException *) {
         }
         @throw;
