@@ -29,6 +29,7 @@
 - (void)setGpioIndicator:(BOOL)value;
 - (void)setGpioReset:(BOOL)value;
 
+- (void)detachDebugPort;
 - (void)resetDebugPort;
 - (UInt32)readDebugPortIDCode;
 - (UInt32)readTargetID;

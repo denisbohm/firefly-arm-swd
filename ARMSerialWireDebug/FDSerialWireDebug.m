@@ -279,6 +279,21 @@
     [self skip:1];
 }
 
+- (void)detachDebugPort
+{
+    [self turnToWrite];
+    UInt8 bytes[] = {
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+    };
+    [_serialEngine shiftOutDataLSBFirstNegativeEdge:[NSData dataWithBytes:bytes length:sizeof(bytes)]];
+}
+
 - (void)resetDebugPort
 {
     [self turnToWrite];
@@ -1156,7 +1171,8 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 
 #define IDR_CODE(id) (((id) >> 17) & 0x7ff)
 
-- (BOOL)isAuthenticationAccessPortActive {
+- (BOOL)isAuthenticationAccessPortActive
+{
     uint32_t dpid = [self readDebugPort:0];
     if ((dpid != SWD_DPID_CM4) && (dpid != SWD_DPID_CM3) && (dpid != SWD_DPID_CM0DAP1) && (dpid != SWD_DPID_CM0DAP2)){
         @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:[NSString stringWithFormat:@"DPID 0x%08x not recognized", dpid] userInfo:nil];
