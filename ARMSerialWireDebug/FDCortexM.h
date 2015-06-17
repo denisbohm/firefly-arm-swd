@@ -55,6 +55,9 @@
 
 - (void)identify;
 
+- (void)start:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3;
+- (uint32_t)waitForHalt:(NSTimeInterval)timeout;
+
 - (uint32_t)run:(UInt32)pc timeout:(NSTimeInterval)timeout;
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 timeout:(NSTimeInterval)timeout;
 - (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 timeout:(NSTimeInterval)timeout;

@@ -166,16 +166,16 @@
     NSLog(@"run timeout: dhcsr=0x%08x demcr=0x%08x pc=0x%08x lr=0x%08x", dhcsr, demcr, pc, lr);
 }
 
-- (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3 timeout:(NSTimeInterval)timeout
+- (void)start:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3
 {
     [_serialWireDebug halt];
-
+    
     // Can only use hardware breakpoints if code is in FLASH.
     // Instead we set the link register to a halt function, which then gets called on return. -denis
     /*
-    [_serialWireDebug disableAllBreakpoints];
-    [_serialWireDebug setBreakpoint:0 address:_breakLocation];
-    [_serialWireDebug enableBreakpoints:YES];
+     [_serialWireDebug disableAllBreakpoints];
+     [_serialWireDebug setBreakpoint:0 address:_breakLocation];
+     [_serialWireDebug enableBreakpoints:YES];
      */
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R0 value:r0];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_R1 value:r1];
@@ -184,19 +184,12 @@
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_SP value:_stackRange.location + _stackRange.length];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_PC value:pc];
     [_serialWireDebug writeRegister:CORTEX_M_REGISTER_LR value:_breakLocation | 0x00000001];
-
-#if 0
-    [self logDebugInfo];
-    for (int i = 0; i < 100000; ++i) {
-        if (pc == 0x20000289) {
-            break;
-        }
-        [_serialWireDebug step];
-    }
-    [self logDebugInfo];
-#endif
     
     [_serialWireDebug run];
+}
+
+- (uint32_t)waitForHalt:(NSTimeInterval)timeout
+{
     @try {
         [_serialWireDebug waitForHalt:timeout];
     } @catch (NSException *e) {
@@ -212,6 +205,12 @@
         @throw;
     }
     return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
+}
+
+- (uint32_t)run:(UInt32)pc r0:(uint32_t)r0 r1:(uint32_t)r1 r2:(uint32_t)r2 r3:(uint32_t)r3 timeout:(NSTimeInterval)timeout
+{
+    [self start:pc r0:r0 r1:r1 r2:r2 r3:r3];
+    return [self waitForHalt:timeout];
 }
 
 @end
