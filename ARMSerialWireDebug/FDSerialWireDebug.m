@@ -456,7 +456,7 @@ typedef enum {
             @throw [NSException exceptionWithName:@"write port error" reason:[NSString stringWithFormat:@"unexpected ack %u writing to port %u, register offset %d, value 0x%08x", ack, port, registerOffset, value] userInfo:nil];
         }
     }
-    @throw [NSException exceptionWithName:@"write port error" reason:@"too many retries" userInfo:nil];
+    @throw [NSException exceptionWithName:@"write port error" reason:@"too many ack wait retries" userInfo:nil];
 }
 
 - (UInt32)readDebugPort:(UInt8)registerOffset
