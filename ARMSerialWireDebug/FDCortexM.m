@@ -76,7 +76,7 @@
     NSLog(@"TAP ID: %@ processor core, family ARM%u, device number %u", processorCore ? @"non-ARM" : @"ARM", family, deviceNumber);
      */
     
-    return [NSString stringWithFormat:@"TAP ID %08x", debugPortIDCode];
+    return [NSString stringWithFormat:@"IDCODE %08x", debugPortIDCode];
 }
 
 + (NSString *)cpuIDDescription:(uint32_t)cpuID

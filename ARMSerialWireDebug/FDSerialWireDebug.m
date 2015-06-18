@@ -1165,7 +1165,7 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
     [self readDebugPort:SWD_DP_STAT];
     
     // cache values needed for various higher level routines (such as reading and writing to memory in bulk)
-    _dpid = [self readDebugPort:0];
+    _dpid = [self readDebugPortIDCode];
     _apid = [self readAccessPortID];
 }
 
