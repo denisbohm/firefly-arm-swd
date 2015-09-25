@@ -251,7 +251,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastTestingUpgradeCheck = 0510;
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0700;
 				ORGANIZATIONNAME = "Firefly Design";
 			};
 			buildConfigurationList = 92B8B82216FF70BD00BE38ED /* Build configuration list for PBXProject "ARMSerialWireDebug" */;
@@ -373,6 +373,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -429,6 +430,7 @@
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
 				INSTALL_PATH = "@executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fireflydesign.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = YES;
@@ -448,6 +450,7 @@
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
 				INSTALL_PATH = "@executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fireflydesign.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = YES;
@@ -466,6 +469,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebugTests/ARMSerialWireDebugTests-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fireflydesign.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -481,6 +485,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebugTests/ARMSerialWireDebugTests-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fireflydesign.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
