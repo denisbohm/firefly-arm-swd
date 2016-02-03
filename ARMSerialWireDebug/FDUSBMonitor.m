@@ -195,6 +195,15 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
     [usbMonitor USBDevicesAdded:iterator];
 }
 
+static const char *getServiceMatcher(void) {
+    NSInteger current_supported_version = __MAC_OS_X_VERSION_MAX_ALLOWED;
+    // El Capitan is 10.11.0 (101100)
+    NSInteger el_capitan = 101100;
+
+    // IOUSBDevice has become IOUSBHostDevice in El Capitan...
+    return current_supported_version < el_capitan ? kIOUSBDeviceClassName : "IOUSBHostDevice";
+}
+
 - (void)USBStart
 {
     mach_port_t masterPort;
@@ -208,7 +217,7 @@ void USBDevicesAdded(void *refcon, io_iterator_t iterator)
     CFRunLoopRef runLoopRef = CFRunLoopGetCurrent();
     CFRunLoopAddSource(runLoopRef, runLoopSourceRef, kCFRunLoopCommonModes); // kCFRunLoopDefaultMode);
     
-    CFDictionaryRef matchingDictionary = IOServiceMatching(kIOUSBDeviceClassName);
+    CFDictionaryRef matchingDictionary = IOServiceMatching(getServiceMatcher());
     io_iterator_t gRawAddedIter;
     kernReturn = IOServiceAddMatchingNotification(
                                                   _notificationPort,
