@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		920118801CD8422E00165509 /* ARMSerialWireDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 92B8B83816FF70BD00BE38ED /* ARMSerialWireDebug.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		926261F616FF73A70067A371 /* FDCortexM.h in Headers */ = {isa = PBXBuildFile; fileRef = 926261EA16FF73A70067A371 /* FDCortexM.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		926261F716FF73A70067A371 /* FDCortexM.m in Sources */ = {isa = PBXBuildFile; fileRef = 926261EB16FF73A70067A371 /* FDCortexM.m */; };
 		926261F816FF73A70067A371 /* FDLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = 926261EC16FF73A70067A371 /* FDLogger.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -21,7 +22,6 @@
 		9262620116FF73A70067A371 /* FDUSBMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 926261F516FF73A70067A371 /* FDUSBMonitor.m */; };
 		9262620316FF73D50067A371 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9262620216FF73D50067A371 /* IOKit.framework */; };
 		927E8572179F2E5D0038CEFC /* FDEFM32.h in Headers */ = {isa = PBXBuildFile; fileRef = 927E8571179F2DDC0038CEFC /* FDEFM32.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		92872F9A1A4A60BD00D7E551 /* ARMSerialWireDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 92B8B83816FF70BD00BE38ED /* ARMSerialWireDebug.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		92B8B82C16FF70BD00BE38ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92B8B82B16FF70BD00BE38ED /* Cocoa.framework */; };
 		92B8B83616FF70BD00BE38ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 92B8B83416FF70BD00BE38ED /* InfoPlist.strings */; };
 		92B8B83A16FF70BD00BE38ED /* ARMSerialWireDebug.m in Sources */ = {isa = PBXBuildFile; fileRef = 92B8B83916FF70BD00BE38ED /* ARMSerialWireDebug.m */; };
@@ -42,6 +42,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9201187F1CD83EBE00165509 /* ARMSerialWireDebug-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ARMSerialWireDebug-Bridging-Header.h"; sourceTree = "<group>"; };
 		926261EA16FF73A70067A371 /* FDCortexM.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FDCortexM.h; sourceTree = "<group>"; };
 		926261EB16FF73A70067A371 /* FDCortexM.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FDCortexM.m; sourceTree = "<group>"; };
 		926261EC16FF73A70067A371 /* FDLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FDLogger.h; sourceTree = "<group>"; };
@@ -153,6 +154,7 @@
 				92B8B83816FF70BD00BE38ED /* ARMSerialWireDebug.h */,
 				92B8B83916FF70BD00BE38ED /* ARMSerialWireDebug.m */,
 				927E8571179F2DDC0038CEFC /* FDEFM32.h */,
+				9201187F1CD83EBE00165509 /* ARMSerialWireDebug-Bridging-Header.h */,
 			);
 			path = ARMSerialWireDebug;
 			sourceTree = "<group>";
@@ -200,7 +202,7 @@
 				926261FC16FF73A70067A371 /* FDSerialWireDebug.h in Headers */,
 				926261FE16FF73A70067A371 /* FDUSBDevice.h in Headers */,
 				9262620016FF73A70067A371 /* FDUSBMonitor.h in Headers */,
-				92872F9A1A4A60BD00D7E551 /* ARMSerialWireDebug.h in Headers */,
+				920118801CD8422E00165509 /* ARMSerialWireDebug.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,6 +252,7 @@
 		92B8B81F16FF70BD00BE38ED /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 0730;
 				LastTestingUpgradeCheck = 0510;
 				LastUpgradeCheck = 0500;
 				ORGANIZATIONNAME = "Firefly Design";
@@ -420,8 +423,10 @@
 		92B8B85316FF70BD00BE38ED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
@@ -429,9 +434,13 @@
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
 				INSTALL_PATH = "@executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -439,8 +448,10 @@
 		92B8B85416FF70BD00BE38ED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
@@ -448,9 +459,12 @@
 				GCC_PREFIX_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Prefix.pch";
 				INFOPLIST_FILE = "ARMSerialWireDebug/ARMSerialWireDebug-Info.plist";
 				INSTALL_PATH = "@executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "ARMSerialWireDebug/ARMSerialWireDebug-Bridging-Header.h";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;

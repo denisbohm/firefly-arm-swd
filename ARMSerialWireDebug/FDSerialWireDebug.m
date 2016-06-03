@@ -23,6 +23,18 @@
 // Cortex M0+
 #define SWD_DPID_CM0DAP2 0x0bb12477
 
+// Cortex M0+ 0x0bc11477
+
+#define SWD_DPIDR_REVISION(idcode) (((idcode) >> 28) & 0xf)
+#define SWD_DPIDR_PARTNO(idcode) (((idcode) >> 20) & 0xff)
+#define SWD_DPIDR_RESERVED(idcode) (((idcode) >> 17) & 0x7)
+#define SWD_DPIDR_MINIMAL(idcode) (((idcode) & (1 << 16)) != 0)
+#define SWD_DPIDR_VERSION(idcode) (((idcode) >> 12) & 0xf)
+#define SWD_DPIDR_VERSION_SINGLE 1
+#define SWD_DPIDR_VERSION_MULTI_DROP 2
+#define SWD_DPIDR_MANUFACTURER(idcode) ((idcode) & 0xfff)
+#define SWD_DPIDR_MANUFACTURER_ARM 0x477
+
 #define SWD_DP_IDCODE 0x00
 #define SWD_DP_ABORT  0x00
 #define SWD_DP_CTRL   0x04
@@ -1174,7 +1186,8 @@ static UInt32 unpackLittleEndianUInt32(uint8_t *bytes) {
 - (BOOL)isAuthenticationAccessPortActive
 {
     uint32_t dpid = [self readDebugPort:0];
-    if ((dpid != SWD_DPID_CM4) && (dpid != SWD_DPID_CM3) && (dpid != SWD_DPID_CM0DAP1) && (dpid != SWD_DPID_CM0DAP2)){
+    uint8_t partno = SWD_DPIDR_PARTNO(dpid);
+    if (!((0xba <= partno) && (partno <= 0xbc))) {
         @throw [NSException exceptionWithName:@"DPID_NOT_RECOGNIZED" reason:[NSString stringWithFormat:@"DPID 0x%08x not recognized", dpid] userInfo:nil];
     }
     

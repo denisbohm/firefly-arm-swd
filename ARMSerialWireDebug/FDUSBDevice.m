@@ -130,7 +130,7 @@
             (void) (*interface)->Release(interface);
             break;
         }
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes); // kCFRunLoopDefaultMode);
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopCommonModes); // kCFRunLoopDefaultMode);
         
         break;
     }

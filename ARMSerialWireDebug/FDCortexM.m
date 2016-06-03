@@ -113,6 +113,10 @@
         uint32_t n = cpuID & 0x0000000f;
         return [NSString stringWithFormat:@"ARM Cortex-M0 r0p%d", n];
     }
+    if ((cpuID & 0xfffffff0) == 0x410cc600) {
+        uint32_t n = cpuID & 0x0000000f;
+        return [NSString stringWithFormat:@"ARM Cortex-M0+ r0p%d", n];
+    }
     return [NSString stringWithFormat:@"CPUID = %08x", cpuID];
 }
 
@@ -197,7 +201,8 @@
             [self logDebugInfo];
             uint32_t current_pc = [_serialWireDebug readRegister:CORTEX_M_REGISTER_PC];
             if (current_pc == (_breakLocation | 0x00000001)) {
-                NSLog(@"halted, but halt bit not set");
+                uint16_t instruction = [_serialWireDebug readMemoryUInt16:_breakLocation];
+                NSLog(@"halted, but halt bit not set (0x%08x = 0x%04x)", _breakLocation, instruction);
                 return [_serialWireDebug readRegister:CORTEX_M_REGISTER_R0];
             }
         } @catch (NSException *) {
