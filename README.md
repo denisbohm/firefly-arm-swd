@@ -3,6 +3,8 @@ firefly-arm-swd
 
 Firefly ARM Serial Wire Debug Mac OS X Framework
 
+Note that this has been replaced by firefly-arm-serial-wire-debug and is no longer being maintained.
+
 See http://fireflydesign.com for information on the open source Firefly Activity Monitor.
 
 Copyright and License
